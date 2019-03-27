@@ -1,0 +1,41 @@
+{
+  "name": "peer-box",
+  "version": "1.0.0",
+  "description": "Message and transfer files easily",
+  "main": "bin/www",
+  "scripts": {
+    "start": "node bin/www",
+    "start-prod": "NODE_ENV=production node bin/www",
+    "dev": "nodemon -e 'js' -i 'public' bin/www --inspect",
+    "test": "NODE_ENV=test nodemon --exec 'mocha -G --inspect=5858'",
+    "test-ci": "NODE_ENV=test mocha --exit",
+    "lint": "eslint --ext=.js src",
+    "lint-fix": "eslint --fix --ext=.js src"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sentry/node": "^4.6.4",
+    "body-parser": "^1.18.3",
+    "chai": "^4.2.0",
+    "cors": "^2.8.5",
+    "ejs": "^2.6.1",
+    "express": "^4.16.4",
+    "express-rate-limit": "^3.4.0",
+    "helmet": "^3.16.0",
+    "mocha": "^6.0.2",
+    "morgan": "^1.9.1",
+    "simple-peer": "^9.2.1",
+    "supertest": "^4.0.2",
+    "winston": "^3.2.1",
+    "ws": "^6.2.0"
+  },
+  "devDependencies": {
+    "dotenv": "^7.0.0",
+    "eslint": "^5.15.2",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.16.0",
+    "nodemon": "^1.18.10"
+  }
+}
