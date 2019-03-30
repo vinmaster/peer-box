@@ -1,5 +1,19 @@
 <%- include('partials/_header') %>
 
+<nav class="light-blue lighten-1" role="navigation">
+  <div class="nav-wrapper container">
+    <a class="brand-logo" href="/">PeerBox</a>
+    <ul class="right hide-on-med-and-down">
+      <li><a href="#" class="host-btn">Host a room</a></li>
+    </ul>
+
+    <ul id="nav-mobile" class="sidenav">
+      <li><a href="#" class="host-btn">Host a room</a></li>
+    </ul>
+    <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+  </div>
+</nav>
+
 <div class="valign-wrapper row">
   <div class="col card hoverable s10 offset-s1">
     <div class="card-content">
@@ -11,9 +25,9 @@
   </div>
 </div>
 
-<script type="text/javascript" src="/js/simplepeer.min.js"></script>
+<!-- <script type="text/javascript" src="/js/simplepeer.min.js"></script>
 <script type="text/javascript" src="/js/vue.min.js"></script>
 <script type="text/javascript" src="/js/vue-router.min.js"></script>
-<script type="text/javascript" src="/js/index.js"></script>
+<script type="text/javascript" src="/js/index.js"></script> -->
 
 <%- include('partials/_footer') %>

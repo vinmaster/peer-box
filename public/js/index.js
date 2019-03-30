@@ -56,13 +56,25 @@ function socketMessage(event) {
       window.app.$router.push(`/${obj.id}`);
     } else if (obj.code === 'ROOM_CREATED') {
       console.log('created', obj);
-      const cardContent = document.querySelector('.card-content');
-      const newRoom = document.createElement('div');
-      newRoom.innerHTML = `New room ${obj.id}`;
-      newRoom.classList.add('animated', 'fadeInUp');
-      cardContent.appendChild(newRoom);
+      window.app.$data.rooms.push({ id: obj.id });
+      console.log('rooms', window.app.$data.rooms);
+      // const cardContent = document.querySelector('.card-content');
+      // const newRoom = document.createElement('div');
+      // newRoom.innerHTML = `New room ${obj.id}`;
+      // newRoom.classList.add('animated', 'fadeInUp');
+      // cardContent.appendChild(newRoom);
     } else if (obj.code === 'ROOMS_REMOVED') {
       console.log('removed', obj);
+      let index = -1;
+      for (const room of window.app.$data.rooms) {
+        index += 1;
+        if (obj.id === room.id) {
+          break;
+        }
+      }
+      if (window.app.$data.rooms.length !== index) {
+        window.app.$data.rooms.splice(index, 1);
+      }
     }
   } catch (err) {
     console.log(event);
@@ -91,7 +103,16 @@ function onReady() {
     template: `
     <div>
       <h3 class="center-align">Welcome</h3>
-      <div class="center-align"><button class="btn" v-on:click="hostClick">Host a room</button></div>
+      <div class="center-align">
+        <button class="btn" v-on:click="hostClick">Host a room</button>
+        <ul>
+          <transition-group enter-active-class="animated fadeInUp" leave-active-class="animated fadeOutDown">
+            <li v-for="(room, index) in this.$parent.rooms" v-bind:key="room.id" class="rooms">
+              New room {{ room.id }}
+            </li>
+          </transition-group>
+        </ul>
+      </div>
     </div>
     `,
     methods: {
@@ -99,21 +120,37 @@ function onReady() {
         socket.sendObj({ code: 'GENERATE_ROOM' });
       },
     },
+    data() {
+      return {};
+    },
   };
   const RoomPage = { template: '<h3 class="center-align">Room <span>{{ $route.params.id }}</span></h3>' };
   Vue.component('nav-bar', NavBar);
   const routes = [
-    { path: '/', component: IndexPage },
-    { path: '/:id', component: RoomPage },
+    { path: '/', name: 'index-page', component: IndexPage },
+    { path: '/:id', name: 'room-page', component: RoomPage },
   ];
 
   const router = new VueRouter({ mode: 'history', routes });
+  const routerAfterEach = (to, from) => {
+    // Navigating away from room
+    if (from.name === 'room-page') {
+      console.log('from', from);
+      socket.sendObj({ code: 'LEAVE_ROOM', roomId: from.params.id });
+    }
+  };
+  router.afterEach(routerAfterEach);
 
   const app = {
     el: '#app',
     router,
     mounted() {
       M.AutoInit();
+    },
+    data() {
+      return {
+        rooms: [],
+      };
     },
   };
   window.app = new Vue(app);

@@ -18,7 +18,7 @@ const Helper = require(`${process.cwd()}/src/lib/helper`);
 const Logger = require(`${process.cwd()}/src/lib/logger`);
 
 // Sentry for errors
-if (env !== 'test') {
+if (env === 'production') {
   Sentry.init({ dsn: process.env.SENTRY_DSN });
   // The request handler must be the first middleware on the app
   app.use(Sentry.Handlers.requestHandler());

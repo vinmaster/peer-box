@@ -38,7 +38,6 @@ class WebSocketServer {
     //   Logger.log(client.id);
     // }
     ws.on('message', data => {
-      Logger.log(data);
       let obj;
       try {
         obj = JSON.parse(data);
@@ -49,8 +48,15 @@ class WebSocketServer {
       const { code } = obj;
       if (code === 'GENERATE_ROOM') {
         const id = this.createRoom(ws.id);
+        Logger.log('GENERATE_ROOM', id, ws.id);
         ws.send(JSON.stringify({ code: 'GOTO_ROOM', id }));
         this.wss.broadcastExceptId(ws.id, { code: 'ROOM_CREATED', id });
+      } else if (code === 'LEAVE_ROOM') {
+        Logger.log('LEAVE_ROOM', obj.roomId, ws.id);
+        const removedRooms = this.removeIdFromRooms(ws.id);
+        this.wss.broadcastExceptId(ws.id, { code: 'ROOMS_REMOVED', ids: removedRooms });
+      } else {
+        Logger.log('Code not supported', data);
       }
     });
     ws.on('close', (_code, reason) => {
