@@ -50,7 +50,7 @@ function socketTeardown() {
   socketId = null;
 }
 function socketOpen(event) {
-  console.log('open', event);
+  console.log('socket open', event);
   retryCount = 0;
   if (timerID) {
     clearTimeout(timerID);
@@ -58,7 +58,7 @@ function socketOpen(event) {
   appSetup();
 }
 function socketClose(event) {
-  console.log('close', event);
+  console.log('socket close', event);
   socketTeardown();
   timerID = setTimeout(() => {
     retryCount += 1;
