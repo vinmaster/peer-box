@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 const app = require(`${process.cwd()}/src/server`);
-const WebSocket = require(`${process.cwd()}/src/web-socket`);
+const WebSocketConnection = require(`${process.cwd()}/src/web-socket-connection`);
 const server = require('http').createServer(app);
 
-// Hook WebSocket
-WebSocket.setup(server);
+// Hook WebSocketConnection
+WebSocketConnection.setup(server);
 
 const port = process.env.PORT || 8000;
 
