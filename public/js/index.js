@@ -1,4 +1,4 @@
-/* global M, SimplePeer, Vue, VueRouter */
+/* global M, SimplePeer, Vue, VueRouter, Uppy */
 /* eslint-disable no-console, no-use-before-define */
 const url = window.location.protocol === 'http:' ? `ws://${window.location.host}`
   : `wss://${window.location.host}`;
@@ -14,6 +14,9 @@ let fileInput;
 let downloadAnchor;
 const targetFile = {};
 const fileBuffer = [];
+
+const filesToUpload = [];
+const fileBuffers = {};
 WebSocket.prototype.sendObj = function sendObj(obj) {
   if (typeof obj !== 'object') { throw new Error('Not an object'); }
   const string = JSON.stringify(obj);
@@ -107,6 +110,60 @@ function socketMessage(event) {
       // console.log('join', obj, socketId, peerConnection, window.app.$route.params.id, obj.roomId);
       if (window.app.$route.params.id === obj.roomId) {
         isHost = obj.hostId === socketId;
+
+        const uppy = Uppy.Core({
+          debug: true,
+          autoProceed: true,
+          allowMultipleUploads: true,
+          restrictions: {
+            // maxNumberOfFiles: 1,
+            minNumberOfFiles: 1,
+          },
+        })
+          .use(Uppy.Dashboard, {
+            // trigger: '.UppyModalOpenerBtn',
+            inline: true,
+            target: '#upload-area',
+            replaceTargetContent: true,
+            showProgressDetails: true,
+            note: 'Upload will start automatically',
+            height: 470,
+            metaFields: [
+              { id: 'name', name: 'Name', placeholder: 'file name' },
+              { id: 'caption', name: 'Caption', placeholder: 'describe what the image is about' },
+            ],
+            browserBackButtonClose: true,
+          });
+
+        window.uppy = uppy;
+        uppy.on('complete', result => {
+          console.log('successful files:', result.successful);
+          console.log('failed files:', result.failed);
+          console.log('files', uppy.getFiles());
+          const files = uppy.getFiles();
+          for (const fileObj of files) {
+            filesToUpload.push({
+              fileObj,
+            });
+            const file = files[0].data;
+            console.log('state', uppy.getState());
+            console.log(`File is ${[file.name, file.size, file.type, file.lastModified].join(' ')}`);
+          }
+          // if (files.length !== 1) {
+          //   console.error('No files selected');
+          //   return;
+          // }
+
+          // socket.sendObj({
+          //   code: 'FILE_READY',
+          //   roomId: window.app.$route.params.id,
+          //   name: file.name,
+          //   size: file.size,
+          //   type: file.type,
+          //   lastModified: file.lastModified,
+          // });
+        });
+
 
         fileInput = document.querySelector('input#fileInput');
         if (isHost) {
@@ -243,6 +300,7 @@ function appSetup() {
       <form>
         <input disabled type="file" id="fileInput" name="files"/>
       </form>
+      <div id="upload-area"></div>
       <a id="downloadLink"></a>
     </div>
     `,
