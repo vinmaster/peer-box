@@ -63,9 +63,6 @@ app.set('views', path.join(__dirname, '/views'));
 // Set up public folder
 app.use(express.static(`${process.cwd()}/public`));
 
-// Favicon
-// app.use(favicon(path.join(`${process.cwd()}/public`, 'favicon.ico')));
-
 // Register routes
 const routes = require(`${process.cwd()}/src/routes`);
 app.use('/', routes);

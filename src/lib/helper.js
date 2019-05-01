@@ -67,7 +67,9 @@ const Helper = {
   },
 
   skipReq(req, _res) {
-    return req.url.startsWith('/css') || req.url.startsWith('/js');
+    return req.url.startsWith('/css')
+      || req.url.startsWith('/js')
+      || req.url.startsWith('/favicon.png');
   },
 
   verifyParams(query, ...params) {

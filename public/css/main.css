@@ -9,4 +9,37 @@ main {
   background: #29b6f6;  /* fallback for old browsers */
   background: -webkit-linear-gradient(to top, #ff9800, #29b6f6);  /* Chrome 10-25, Safari 5.1-6 */
   background: linear-gradient(to top, #ff9800, #29b6f6); /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+  margin-top: 56px;
+}
+
+nav {
+  box-shadow: none;
+  position: absolute;
+  top: 0;
+}
+
+.page-footer {
+  padding-top: 0px;
+}
+
+.chat-container {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-msgs {
+  overflow-y: auto;
+  flex-grow: 1;
+  min-height: 100px;
+}
+
+.chat-input {
+  display: flex;
+  padding-left: 10px;
+}
+
+.download-progress-bar {
+  height: 5px;
+  background-color: #1bb240;
 }

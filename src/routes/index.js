@@ -54,7 +54,11 @@ router.use((err, req, res, _next) => {
   const {
     status, message, error, info,
   } = Helper.digestError(err, { html: true });
-  Logger.error(`${error.message}\n${error.stack}`);
+  if (status === 404) {
+    Logger.error(`${error.message}: ${req.originalUrl}\n${error.stack}`);
+  } else {
+    Logger.error(`${error.message}\n${error.stack}`);
+  }
   Sentry.captureException(err);
 
   return res.status(status).render('error', {

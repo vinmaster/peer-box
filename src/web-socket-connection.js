@@ -1,146 +1,215 @@
 const Logger = require(`${process.cwd()}/src/lib/logger`);
 const Helper = require(`${process.cwd()}/src/lib/helper`);
-const WebSocket = require('ws');
+const socketio = require('socket.io');
 
 class WebSocketConnection {
   static setup(server) {
-    this.wss = new WebSocket.Server({ server });
-    this.wss.broadcast = data => {
-      for (const client of this.wss.clients) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(data));
-        }
-      }
-    };
-    this.wss.broadcastExceptId = (id, data) => {
-      for (const client of this.wss.clients) {
-        if (id !== client.id && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(data));
-        }
-      }
-    };
-    this.wss.on('connection', this.connection.bind(this));
-    this.clientCounter = 0;
+    this.io = socketio(server);
+    this.io.on('connection', this.onConnection.bind(this));
     this.rooms = {};
   }
 
-  static connection(ws, req) {
-    this.clientCounter += 1;
-    ws.id = this.clientCounter;
-    let ip = req.connection.remoteAddress;
+  static onConnection(socket) {
+    let ip = socket.request.connection.remoteAddress;
     if (Helper.env === 'production') {
-      [ip] = req.headers['x-forwarded-for'].split(/\s*,\s*/);
+      [ip] = socket.request.headers['x-forwarded-for'].split(/\s*,\s*/);
     }
-    Logger.log('connected', ws.id, ip);
-    ws.ip = ip;
-    ws.send(JSON.stringify({ code: 'SET_ID', id: ws.id }));
-    // Logger.log('clients', this.wss.clients);
-    // for (const client of this.wss.clients) {
-    //   Logger.log(client.id);
-    // }
-    ws.on('message', data => {
-      let obj;
-      try {
-        obj = JSON.parse(data);
-      } catch (err) {
-        Logger.log(data);
+    Logger.log('connected', socket.id, ip);
+    socket.ip = ip;
+
+    socket.on('disconnect', reason => {
+      Logger.log('disconnected', socket.id, reason);
+      const roomId = this.getRoomIdfromSocketId(socket.id);
+      if (roomId) {
+        // Tell room that the socket left
+        this.io.to(roomId).emit('LEAVE_ROOM', { socketId: socket.id });
+      }
+      // const removedRoomIds = this.removeSocketIdFromRooms(socket.id);
+      // this.io.emit('ROOMS_REMOVED', { roomIds: removedRoomIds });
+      this.removeSocketIdFromRooms(socket.id);
+      for (const id of this.listSocketIds()) {
+        const roomIds = this.getRoomsWithSameIP(this.io.sockets.connected[id].ip);
+        // socket.broadcast.emit('LIST_ROOMS', { roomIds });
+        this.io.sockets.connected[id].emit('LIST_ROOMS', { roomIds });
+      }
+    });
+
+    socket.on('LIST_ROOMS', () => {
+      const roomIds = this.getRoomsWithSameIP(socket.ip);
+      this.io.sockets.connected[socket.id].emit('LIST_ROOMS', { roomIds });
+    });
+
+    socket.on('GENERATE_ROOM', () => {
+      const roomId = this.createRoom();
+      socket.emit('GENERATE_ROOM', { roomId });
+      this.joinRoom(roomId, socket);
+      for (const id of this.listSocketIds()) {
+        const roomIds = this.getRoomsWithSameIP(this.io.sockets.connected[id].ip);
+        // socket.broadcast.emit('LIST_ROOMS', { roomIds });
+        this.io.sockets.connected[id].emit('LIST_ROOMS', { roomIds });
+      }
+    });
+
+    socket.on('DESTROY_ROOM', ({ roomId }) => {
+      this.destroyRoom(roomId);
+      for (const id of this.listSocketIds()) {
+        const roomIds = this.getRoomsWithSameIP(this.io.sockets.connected[id].ip);
+        // socket.broadcast.emit('LIST_ROOMS', { roomIds });
+        this.io.sockets.connected[id].emit('LIST_ROOMS', { roomIds });
+      }
+    });
+
+    socket.on('JOIN_ROOM', ({ roomId }) => {
+      if (!this.rooms[roomId]) {
+        Logger.log('Room not present', roomId);
+        socket.emit('ROOM_INFO', { error: 'Room not present' });
         return;
       }
-      const { code } = obj;
-      if (code === 'GENERATE_ROOM') {
-        // Logger.log('GENERATE_ROOM', ws.id);
-        const id = this.createRoom(ws.id);
-        ws.send(JSON.stringify({ code: 'GOTO_ROOM', id }));
-        this.wss.broadcastExceptId(ws.id, { code: 'ROOM_CREATED', id });
-      } else if (code === 'LIST_ROOMS') {
-        ws.send(JSON.stringify({ code: 'LIST_ROOMS', roomIds: Object.keys(this.rooms) }));
-      } else if (code === 'LEAVE_ROOM') {
-        // Logger.log('LEAVE_ROOM', obj.roomId, ws.id);
-        const removedRooms = this.removeIdFromRooms(ws.id);
-        this.wss.broadcastExceptId(ws.id, { code: 'ROOMS_REMOVED', ids: removedRooms });
-      } else if (code === 'JOIN_ROOM') {
-        // Logger.log('JOIN_ROOM', obj.roomId, ws.id);
-        if (!this.rooms[obj.roomId]) {
-          Logger.log('Room not present', obj.roomId);
-          return;
-        }
-        this.rooms[obj.roomId].clients.push(ws.id);
-        // this.wss.broadcastExceptId(ws.id, { code: 'JOIN_ROOM', roomId: obj.roomId });
-        this.wss.broadcast({
-          code: 'JOIN_ROOM',
-          id: ws.id,
-          ...this.rooms[obj.roomId],
-        });
-      } else if (code === 'SIGNAL') {
-        // Logger.log('SIGNAL', ws.id);
-        // for (const client of this.rooms[obj.roomId].clients) {
-        // }
-        this.wss.broadcastExceptId(ws.id, {
-          code: 'SIGNAL',
-          roomId: obj.roomId,
-          id: ws.id,
-          signal: obj.signal,
-        });
-      } else if (code === 'FILE_READY') {
-        this.wss.broadcastExceptId(ws.id, {
-          code: 'FILE_READY',
-          ...obj,
-        });
-        ws.send(JSON.stringify({
-          code: 'FILE_UPLOAD',
-          roomId: obj.roomId,
-        }));
-      } else {
-        Logger.log('Code not supported', data);
+      // console.log('JOIN_ROOM', roomId);
+      this.joinRoom(roomId, socket);
+      socket.join(roomId);
+      this.io.emit('ROOM_INFO', {
+        socketId: socket.id,
+        ...this.rooms[roomId],
+      });
+    });
+
+    socket.on('LEAVE_ROOM', ({ roomId }) => {
+      // console.log('LEAVE_ROOM', roomId);
+      this.removeSocketIdFromRooms(socket.id);
+      // this.io.emit('LEAVE_ROOM', { socketId: socket.id });
+      socket.broadcast.to(roomId).emit('ROOM_INFO', {
+        socketId: socket.id,
+        ...this.rooms[roomId],
+      });
+      socket.leave(roomId);
+      for (const id of this.listSocketIds()) {
+        const roomIds = this.getRoomsWithSameIP(this.io.sockets.connected[id].ip);
+        // socket.broadcast.emit('LIST_ROOMS', { roomIds });
+        this.io.sockets.connected[id].emit('LIST_ROOMS', { roomIds });
       }
     });
-    ws.on('close', (_code, reason) => {
-      Logger.log('close', ws.id, reason);
-      const removedRooms = this.removeIdFromRooms(ws.id);
-      this.wss.broadcastExceptId(ws.id, { code: 'ROOMS_REMOVED', ids: removedRooms });
+
+    socket.on('ROOM_READY', ({ roomId }) => {
+      this.io.to(roomId).emit('ROOM_READY', { roomId });
     });
-    // ws.send('test from server');
-    // ws.terminate();
+
+    socket.on('UPLOAD_START', data => {
+      const roomId = this.getRoomIdfromSocketId(socket.id);
+      Logger.log(`UPLOAD_START ${socket.id} ${roomId}`);
+      socket.broadcast.to(roomId).emit('UPLOAD_START', data);
+    });
+
+    socket.on('MSG_ROOM', data => {
+      // console.log('MSG_ROOM', data);
+      this.io.to(data.roomId).emit('MSG_ROOM', data);
+    });
+
+    /* --------------------- SimpleMultiPeer functions --------------------- */
+    socket.on('PEERS_JOIN', ({ roomId }) => {
+      // console.log('PEERS_LIST', socket.id, roomId);
+      const firstId = this.rooms[roomId].socketIds[0];
+      // this.io.to(firstId).emit('PEERS_LIST', { socketIds: this.rooms[roomId].socketIds });
+      this.io.sockets.connected[firstId].emit('PEERS_LIST', { socketIds: this.rooms[roomId].socketIds });
+    });
+
+    socket.on('PEERS_SIGNAL', ({ roomId, socketId, signal }) => {
+      // console.log('PEERS_SIGNAL', roomId, socket.id, socketId);
+      socket.broadcast.to(roomId).emit('PEERS_SIGNAL', { socketId, signal });
+    });
   }
 
-  static createRoom(hostId) {
-    let id;
-    do {
-      id = (Math.floor(Math.random() * 9000) + 1000).toString();
-    } while (this.rooms[id]);
-    this.rooms[id] = {
-      hostId,
-      roomId: id,
-      clients: [],
+  /* --------------------- Fetch functions --------------------- */
+  static listSockets() {
+    if (!this.io) {
+      Logger.info('this.io is not set');
+    }
+    return this.io.sockets.connected;
+  }
+
+  static listSocketIds() {
+    return Object.keys(this.listSockets());
+  }
+
+  // static listRooms() {
+  //   return this.io.sockets.adapter.rooms;
+  // }
+
+  static getRoomIdfromSocketId(socketId) {
+    for (const roomId of Object.keys(this.rooms)) {
+      if (this.rooms[roomId].socketIds.includes(socketId)) {
+        return roomId;
+      }
+    }
+    return null;
+  }
+
+  static getRoomsWithSameIP(ip) {
+    const roomIds = [];
+    for (const roomId of Object.keys(this.rooms)) {
+      if (this.rooms[roomId].socketIds.length !== 0 && this.rooms[roomId].socketIds
+        .every(socketId => this.io.sockets.connected[socketId].ip === ip)) {
+        roomIds.push(roomId);
+      }
+    }
+    return roomIds;
+  }
+
+  /* --------------------- Room functions --------------------- */
+  static createRoom(roomId = null) {
+    // Generate room id if none given
+    if (!roomId) {
+      do {
+        roomId = (Math.floor(Math.random() * 9000) + 1000).toString();
+      } while (this.rooms[roomId]);
+    }
+
+    this.rooms[roomId] = {
+      roomId,
+      createdAt: +new Date(),
+      socketIds: [],
     };
-    // Logger.log(`Created room ${id}`);
-    return id;
+    return roomId;
   }
 
-  static removeRoom(roomId) {
-    for (const client of this.rooms[roomId].clients) {
-      client.terminate();
+  static destroyRoom(roomId) {
+    for (const socketId of this.rooms[roomId].socketIds) {
+      this.io.sockets.connected[socketId].disconnect(true);
     }
     delete this.rooms[roomId];
+    Logger.log('destroyed', roomId);
   }
 
-  static removeIdFromRooms(clientId) {
-    const removedRooms = [];
-    for (const key of Object.keys(this.rooms)) {
-      // this.rooms[key].clients.splice(clientId, 1);
-      this.rooms[key].clients = this.rooms[key].clients.filter(id => {
-        if (id === clientId) {
-          Logger.log(`Removing ${clientId} from room ${key}`);
+  static joinRoom(roomId, socket) {
+    if (!this.rooms[roomId].socketIds.includes(socket.id)) {
+      this.rooms[roomId].socketIds.push(socket.id);
+    }
+  }
+
+  static addSocketIdToRoom(roomId, socketId) {
+    if (!this.rooms[roomId]) {
+      this.createRoom(roomId);
+    }
+    this.rooms[roomId].socketIds.push(socketId);
+  }
+
+  static removeSocketIdFromRooms(socketId) {
+    const removedRoomIds = [];
+    for (const roomId of Object.keys(this.rooms)) {
+      // this.rooms[roomId].socketIds.splice(socketId, 1);
+      this.rooms[roomId].socketIds = this.rooms[roomId].socketIds.filter(id => {
+        if (id === socketId) {
+          Logger.log(`Removing ${socketId} from room ${roomId}`);
         }
-        return id !== clientId;
+        return id !== socketId;
       });
       // TODO if the hostId is the client removed, then make another person host
-      if (this.rooms[key].clients.length === 0) {
-        removedRooms.push(key);
-        this.removeRoom(key);
+      if (this.rooms[roomId].socketIds.length === 0) {
+        removedRoomIds.push(roomId);
+        this.destroyRoom(roomId);
       }
     }
-    return removedRooms;
+    return removedRoomIds;
   }
 }
 
