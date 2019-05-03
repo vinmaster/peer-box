@@ -13,23 +13,12 @@ class SimpleMultiPeer { // eslint-disable-line no-unused-vars
       this.socket = options.socket;
       this.listeners.PEERS_LIST = ({ socketIds }) => {
         this.isHost = this.socket.id === socketIds[0];
-        // Get own socket first in list
-        // socketIds.sort((a, b) => {
-        //   if (this.socket.id === a) {
-        //     return -1;
-        //   }
-        //   if (this.socket.id === b) {
-        //     return 1;
-        //   }
-        //   return 0;
-        // });
-
-        // console.log('PEERS_LIST', this.socket.id, socketIds);
+        // console.log('PEERS_LIST', this.socket.id, socketIds, this.isHost);
         socketIds.forEach(socketId => {
           // Self should not be in peers
           if (!this.peers[socketId]) {
-            const initiator = socketIds.indexOf(socketId) === 0;
-            // this.peers[socketId] = new SimplePeer(Object.assign({ initiator: true }, this._peerOptions));
+            // const initiator = socketIds.indexOf(socketId) === 0;
+            const initiator = this.isHost && this.socket.id !== socketId;
             this.peers[socketId] = new SimplePeer(Object.assign({ initiator }, this._peerOptions));
             this.registerPeerEvents(this.peers[socketId], socketId);
           }
@@ -37,13 +26,24 @@ class SimpleMultiPeer { // eslint-disable-line no-unused-vars
       };
 
       // Receive signal from peers
-      this.listeners.PEERS_SIGNAL = ({ socketId, signal }) => {
+      this.listeners.PEERS_SIGNAL = ({ socketId, socketIds, signal }) => {
         // console.log('PEERS_SIGNAL', this.socket.id, socketId);
+        // TODO fix when greater than 3 people
+        if (socketIds.length > 2 && this.socket.id === socketId) {
+          return;
+        }
         if (!this.peers[socketId]) {
           this.peers[socketId] = new SimplePeer(Object.assign({}, this._peerOptions));
           this.registerPeerEvents(this.peers[socketId], socketId);
         }
-        this.peers[socketId].signal(signal);
+        try {
+          this.peers[socketId].signal(signal);
+        } catch (error) {
+          // if (this.callbacks.error) {
+          //   return this.callbacks.error(error);
+          // }
+          throw error;
+        }
       };
 
       this.socket.emit('PEERS_JOIN', { roomId: this.roomId });
@@ -95,7 +95,7 @@ class SimpleMultiPeer { // eslint-disable-line no-unused-vars
   }
 
   onPeerSignal(socketId, signal) {
-    // console.log(`PEER signal send to others ${socketId} ${signal}`);
+    // console.log(`PEER signal send to others ${this.socket.id} ${socketId} ${signal}`);
     // Send signal to other peers
     this.socket.emit('PEERS_SIGNAL', {
       roomId: this.roomId,

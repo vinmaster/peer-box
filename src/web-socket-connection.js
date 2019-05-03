@@ -20,13 +20,15 @@ class WebSocketConnection {
     socket.on('disconnect', reason => {
       Logger.log('disconnected', socket.id, reason);
       const roomId = this.getRoomIdfromSocketId(socket.id);
+      this.removeSocketIdFromRooms(socket.id);
       if (roomId) {
         // Tell room that the socket left
-        this.io.to(roomId).emit('LEAVE_ROOM', { socketId: socket.id });
+        this.io.to(roomId).emit('ROOM_INFO', {
+          ...this.rooms[roomId],
+        });
       }
       // const removedRoomIds = this.removeSocketIdFromRooms(socket.id);
       // this.io.emit('ROOMS_REMOVED', { roomIds: removedRoomIds });
-      this.removeSocketIdFromRooms(socket.id);
       for (const id of this.listSocketIds()) {
         const roomIds = this.getRoomsWithSameIP(this.io.sockets.connected[id].ip);
         // socket.broadcast.emit('LIST_ROOMS', { roomIds });
@@ -68,7 +70,7 @@ class WebSocketConnection {
       // console.log('JOIN_ROOM', roomId);
       this.joinRoom(roomId, socket);
       socket.join(roomId);
-      this.io.emit('ROOM_INFO', {
+      this.io.to(roomId).emit('ROOM_INFO', {
         socketId: socket.id,
         ...this.rooms[roomId],
       });
@@ -94,12 +96,6 @@ class WebSocketConnection {
       this.io.to(roomId).emit('ROOM_READY', { roomId });
     });
 
-    socket.on('UPLOAD_START', data => {
-      const roomId = this.getRoomIdfromSocketId(socket.id);
-      Logger.log(`UPLOAD_START ${socket.id} ${roomId}`);
-      socket.broadcast.to(roomId).emit('UPLOAD_START', data);
-    });
-
     socket.on('MSG_ROOM', data => {
       // console.log('MSG_ROOM', data);
       this.io.to(data.roomId).emit('MSG_ROOM', data);
@@ -108,14 +104,22 @@ class WebSocketConnection {
     /* --------------------- SimpleMultiPeer functions --------------------- */
     socket.on('PEERS_JOIN', ({ roomId }) => {
       // console.log('PEERS_LIST', socket.id, roomId);
-      const firstId = this.rooms[roomId].socketIds[0];
       // this.io.to(firstId).emit('PEERS_LIST', { socketIds: this.rooms[roomId].socketIds });
-      this.io.sockets.connected[firstId].emit('PEERS_LIST', { socketIds: this.rooms[roomId].socketIds });
+      const firstId = this.rooms[roomId].socketIds[0];
+      if (socket.id === firstId) {
+        this.io.sockets.connected[firstId].emit('PEERS_LIST', {
+          socketIds: this.rooms[roomId].socketIds,
+        });
+      }
     });
 
     socket.on('PEERS_SIGNAL', ({ roomId, socketId, signal }) => {
       // console.log('PEERS_SIGNAL', roomId, socket.id, socketId);
-      socket.broadcast.to(roomId).emit('PEERS_SIGNAL', { socketId, signal });
+      socket.broadcast.to(roomId).emit('PEERS_SIGNAL', {
+        socketId,
+        socketIds: this.rooms[roomId].socketIds,
+        signal,
+      });
     });
   }
 
@@ -203,7 +207,6 @@ class WebSocketConnection {
         }
         return id !== socketId;
       });
-      // TODO if the hostId is the client removed, then make another person host
       if (this.rooms[roomId].socketIds.length === 0) {
         removedRoomIds.push(roomId);
         this.destroyRoom(roomId);

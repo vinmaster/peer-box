@@ -23,6 +23,14 @@ class WebRTCUpload extends Uppy.Core.Plugin { // eslint-disable-line no-unused-v
           const slice = file.data.slice(offset, currentChunk + this.chunkSize);
           fileReader.readAsArrayBuffer(slice);
         };
+        this.peerConnection.send(JSON.stringify({
+          payloadType: 'UPLOAD_START',
+          id: file.id,
+          name: file.data.name,
+          size: file.data.size,
+          type: file.data.type,
+          lastModified: file.data.lastModified,
+        }));
 
         fileReader.onload = e => {
           this.peerConnection.send(e.target.result);

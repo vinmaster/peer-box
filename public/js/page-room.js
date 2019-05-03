@@ -21,14 +21,13 @@ const RoomPage = { // eslint-disable-line no-unused-vars
         <h4 v-show="isHost && webrtcReady">Files to send</h4>
         <div v-show="isHost && webrtcReady" id="upload-area"></div>
         <h4 v-show="!isHost && webrtcReady">Files received</h4>
-        <div v-show="!isHost && webrtcReady">Bytes received: {{ formatBytes(currentBufferSize) }}</div>
       </div>
       <ul class="collection">
         <li v-for="(file, index) in files" v-bind:key="file.id" class="files collection-item">
           <span>Name: {{ file.name }}</span><br />
           <span>Size: {{ formatBytes(file.size) }}</span><br />
           <span>Type: {{ file.type }}</span><br />
-          <span>Last Modified: {{ dateFns.format(file.lastModified, 'M/D/YY h:mm a') }}</span><br />
+          <span>Last Modified: {{ dateFns.format(file.lastModified, 'M/D/YY h:mm:ss a') }}</span><br />
           <div class="download-progress-bar" v-bind:style="{ width: calcPercent(file.bufferSize, file.size) }"></div>
           <span>Downloaded: {{ calcPercent(file.bufferSize, file.size) }} {{ formatBytes(file.bufferSize) }}</span><br />
           <a class="btn" v-on:click="saveFile($event, file.id)">Save<i class="right material-icons">save</i></a>
@@ -36,13 +35,13 @@ const RoomPage = { // eslint-disable-line no-unused-vars
       </ul>
 
       <div class="chat-container">
-        <span>Chat</span>
+        <h4>Chat</h4>
         <div class="chat-msgs collection">
-          <div class="chat-msg collection-item" v-for="msg in msgs">
-            <button class="right copy" v-bind:data-clipboard-text="msg.text">Copy</button>
+          <div class="chat-msg collection-item" v-for="msg in msgs" v-bind:style="{ textAlign: msg.sender === $socket.id ? 'right' : 'left' }">
+            <a class="right copy" v-bind:data-clipboard-text="msg.text"><i class="material-icons">content_copy<i/></a>
             <span v-if="msg.type === 'text'">{{ msg.text }}</span>
-            <a v-bind:href="msg.text" v-if="msg.type === 'link'">{{ msg.text }}</a>
-            <span class="badge">{{ dateFns.format(msg.timestamp, 'h:mm a') }}</span>
+            <a target="_blank" v-bind:href="msg.text" v-if="msg.type === 'link'">{{ msg.text }}</a>
+            <span class="badge">{{ dateFns.format(msg.timestamp, 'h:mm:ss a') }}</span>
           </div>
         </div>
         <div class="chat-input">
@@ -70,7 +69,6 @@ const RoomPage = { // eslint-disable-line no-unused-vars
         // socketId, roomId, createdAt, socketIds,
         socketIds,
       } = data;
-      // console.log('roomIds', socketId, roomId, createdAt, socketIds);
 
       // Add sockets
       for (const id of socketIds) {
@@ -96,26 +94,20 @@ const RoomPage = { // eslint-disable-line no-unused-vars
       this.setupUploader();
     };
 
-    this.$options.sockets.UPLOAD_START = ({
-      id, name, size, type, lastModified,
-    }) => {
-      // console.log('UPLOAD_START', id, name);
-      this.files[id] = {
-        id, name, size, type, lastModified, buffer: [], bufferSize: 0,
-      };
-      this.currentFileId = id;
-    };
-
     this.$options.sockets.MSG_ROOM = ({ msg }) => {
       this.msgs.push(msg);
-      new ClipboardJS('.copy'); // eslint-disable-line no-new
+      setTimeout(() => {
+        new ClipboardJS('.copy'); // eslint-disable-line no-new
+        // Scroll to bottom of chat
+        const container = document.querySelector('.chat-msgs');
+        container.scrollTop = container.scrollHeight;
+      }, 0);
     };
     this.$socket.emit('JOIN_ROOM', { roomId: this.$route.params.id });
   },
   beforeDestroy() {
     delete this.$options.sockets.ROOM_INFO;
     delete this.$options.sockets.ROOM_READY;
-    delete this.$options.sockets.UPLOAD_START;
     delete this.$options.sockets.MSG_ROOM;
     if (this.peerConnection) {
       this.peerConnection.deleteListeners();
@@ -133,6 +125,10 @@ const RoomPage = { // eslint-disable-line no-unused-vars
           close: this.peerOnClose.bind(this),
           data: this.peerOnData.bind(this),
           // stream: this.peerOnStream.bind(this),
+          error: error => {
+            console.error(error);
+            this.error = error.message;
+          },
         },
       });
     },
@@ -169,21 +165,6 @@ const RoomPage = { // eslint-disable-line no-unused-vars
         // socketId,
         // roomId,
       });
-      this.uppy.on('upload-started', file => {
-        this.$socket.emit('UPLOAD_START', {
-          id: file.id,
-          name: file.data.name,
-          size: file.data.size,
-          type: file.data.type,
-          lastModified: file.data.lastModified,
-        });
-      });
-      // this.uppy.on('complete', result => {
-      //   console.log('successful files:', result.successful);
-      //   console.log(result.successful[0].progress);
-      //   console.log('failed files:', result.failed);
-      //   console.log('files', this.uppy.getFiles());
-      // });
     },
     connectPeers() {
       this.$socket.emit('ROOM_READY', { roomId: this.$route.params.id });
@@ -197,21 +178,30 @@ const RoomPage = { // eslint-disable-line no-unused-vars
       this.webrtcReady = false;
     },
     peerOnData(socketId, data) {
-      // console.log(`PEER received data callback from ${socketId}`);
-      if (!this.currentBuffer) {
-        this.currentBufferSize = 0;
-        this.currentBuffer = [];
-      }
-      this.currentBuffer.push(data);
-      this.currentBufferSize += data.byteLength;
-
-      if (this.currentFileId) {
-        this.files[this.currentFileId].bufferSize = this.currentBufferSize;
-        if (this.files[this.currentFileId].size === this.currentBufferSize) {
-          this.files[this.currentFileId].buffer = this.currentBuffer;
-          // this.files[this.currentFileId].size = this.currentBufferSize;
+      try {
+        data = JSON.parse(data);
+        // console.log(`PEER received data callback from ${socketId} data ${data}`);
+        if (data.payloadType === 'UPLOAD_START') {
+          const {
+            id, name, size, type, lastModified,
+          } = data;
+          this.currentFileId = id;
+          this.$set(this.files, id, {
+            id, name, size, type, lastModified, buffer: [], bufferSize: 0,
+          });
+        } else {
+          this.error = 'Data transfer error';
+          return;
+        }
+      } catch (error) {
+        // console.log(`Process received data size ${data.byteLength}`);
+        const currentFile = this.files[this.currentFileId];
+        currentFile.buffer.push(data);
+        currentFile.bufferSize += data.byteLength;
+        this.$set(this.files, this.currentFileId, currentFile);
+        // Check if upload finished
+        if (currentFile.size === currentFile.bufferSize) {
           this.currentFileId = null;
-          this.currentBuffer = null;
         }
       }
     },
@@ -243,6 +233,7 @@ const RoomPage = { // eslint-disable-line no-unused-vars
       return `${(current / total).toFixed(2) * 100}%`;
     },
     formatBytes(bytes, decimals = 2) {
+      if (bytes === undefined || bytes === null) return 'No info';
       if (bytes === 0) return '0 Bytes';
 
       const k = 1024;
@@ -270,8 +261,6 @@ const RoomPage = { // eslint-disable-line no-unused-vars
       webrtcReady: false,
       files: {},
       currentFileId: null,
-      currentBuffer: null,
-      currentBufferSize: 0,
       msgs: [],
       textfield: '',
     };
