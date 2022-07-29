@@ -1,0 +1,26 @@
+/// <reference types="vite/client" />
+{
+  "compilerOptions": {
+    "rootDir": "src/server",
+    "outDir": "build",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "target": "esnext",
+    "module": "commonjs",
+    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "types": [
+      "vite/client"
+    ],
+    "paths": {
+      "@/*": [
+        "./src/server/*"
+      ]
+    }
+  },
+  "include": ["src/server/**/*.ts"],
+}
