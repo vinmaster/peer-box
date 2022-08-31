@@ -2,6 +2,7 @@ import util from 'node:util';
 import { SocketStream } from '@fastify/websocket';
 import { FastifyInstance } from 'fastify';
 import * as WebSocket from 'ws';
+import { Manager } from '../lib/manager';
 
 let rooms: Map<string, any> = new Map();
 let maxId = 1;
@@ -27,12 +28,17 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
 
     connection.socket.on('close', () => {
       console.log('close', connection.socket.id, getClients().values.name);
+      Manager.leave(connection.socket, connection.socket.roomId);
     });
 
     connection.socket.on('message', message => {
       message = JSON.parse(message.toString());
       if (isObject(message)) {
-        console.log('isObject', message);
+        let { type, data } = message;
+        console.log('isObject', type, data);
+        if (type === 'JOIN_ROOM') {
+          Manager.join(connection.socket, data.id);
+        }
       } else {
         throw new Error(`Object is expected but got: ${message}`);
       }

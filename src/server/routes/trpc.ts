@@ -2,8 +2,7 @@ import { createRouter } from '../lib/context';
 import { z } from 'zod';
 import superjson from 'superjson';
 import { TRPCError } from '@trpc/server';
-import { User, users, UserSchema } from '../data/data';
-// import { wsRoutes } from './ws';
+import { Manager } from '../lib/manager';
 
 const authMiddleware = async ({ ctx, next, meta }: any) => {
   if (meta?.auth && !ctx.user) {
@@ -19,33 +18,15 @@ const authMiddleware = async ({ ctx, next, meta }: any) => {
 
 const createProtectedRouter = () => createRouter().middleware(authMiddleware);
 
-const userRoutes = createRouter()
-  .query('getUserByUsername', {
-    input: z.string(),
-    async resolve({ input }) {
-      return users[input];
+const roomRoutes = createRouter()
+  .query('list', {
+    async resolve() {
+      return Manager.list();
     },
   })
-  .mutation('createUser', {
-    input: UserSchema,
+  .mutation('create', {
     async resolve({ input, ctx }) {
-      if (!input.username) throw new TRPCError({ code: 'BAD_REQUEST' });
-      const user: User = input as User;
-      users[user.username] = user;
-      return user;
-    },
-  })
-  .mutation('login', {
-    input: z.object({
-      username: z.string(),
-      password: z.string(),
-    }),
-    async resolve({ input, ctx }) {
-      let user = users.get(input.username);
-      if (!user || user.password != input.password) throw new TRPCError({ code: 'BAD_REQUEST' });
-
-      user.lastLoggedInAt = new Date();
-      return 'success';
+      return Manager.create();
     },
   });
 
@@ -67,7 +48,7 @@ export const appRouter = createRouter()
 
     return result;
   })
-  .merge('user.', userRoutes)
+  .merge('room.', roomRoutes)
   .merge('admin.', adminRoutes);
 
 export type AppRouter = typeof appRouter;
