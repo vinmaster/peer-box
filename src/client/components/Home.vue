@@ -36,7 +36,8 @@ watch(event, () => {
         <h1 class="text-5xl font-bold">PeerBox</h1>
         <button type="button" class="btn btn-primary mt-4" @click="createRoom()">Create Room</button>
         <div class="flex flex-col">
-          <router-link class="mt-4" :to="`/rooms/${roomId}`" v-for="roomId in roomIds">Join {{ roomId }}</router-link>
+          <router-link class="mt-4" :to="`/rooms/${roomId}`" v-for="roomId in roomIds" :key="roomId">Join {{ roomId }}
+          </router-link>
         </div>
       </div>
     </div>

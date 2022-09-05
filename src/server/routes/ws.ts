@@ -48,6 +48,7 @@ export class WebSocketService {
       room = this.createRoom(roomId);
     }
     if (!room.socketIds.includes(socketId)) room.socketIds.push(socketId);
+    this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
   }
 
   static leaveRoom(roomId: string, socketId: string) {
@@ -55,6 +56,7 @@ export class WebSocketService {
       let room = this.rooms.get(roomId)!;
       Util.remove(room.socketIds, socketId);
       if (room.socketIds.length === 0) this.destroyRoom(roomId);
+      this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
     }
   }
 
@@ -69,9 +71,9 @@ export class WebSocketService {
 
   static JOIN_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
-    this.joinRoom(roomId, socket.id);
-    socket.emit('LIST_ROOM', { socketIds: this.rooms.get(roomId)?.socketIds });
+    // socket.emit('LIST_ROOM', { socketIds: this.rooms.get(roomId)?.socketIds });
     socket.join(roomId);
+    this.joinRoom(roomId, socket.id);
     console.log('join room', roomId, socket.id);
   }
 
@@ -81,13 +83,19 @@ export class WebSocketService {
     socket.leave(roomId);
     console.log('leave room', roomId, socket.id);
   }
+
+  static CHAT_MSG(socket: Socket, data: any) {
+    this.io.to(data.roomId).emit('CHAT_MSG', data);
+  }
 }
 
 export function wsRoutes(fastify: FastifyInstance, opts, done) {
   WebSocketService.io = fastify.io;
 
   fastify.io.on('connection', socket => {
-    console.log('connect', socket.id);
+    let { address, headers } = socket.handshake;
+    let forwarded = (headers['x-forwarded-for'] as string) || '';
+    console.log('connect', socket.id, address, forwarded.split(',')[0], headers.forwarded);
 
     socket.onAny((key, data) => {
       console.log('on any', key);

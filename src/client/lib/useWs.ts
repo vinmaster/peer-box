@@ -10,15 +10,14 @@ export interface Event {
 let socket = io(Util.IS_DEV ? `ws://localhost:8000` : `wss://${window.location.host}`);
 let isSetup = false;
 let isConnected = ref(false);
+let event = ref<Event>({ key: '' });
 
 export function useWs() {
-  let event = ref<Event>({ key: '' });
-
   function socketSetup() {
     socket.onAny((key, data) => {
       isConnected.value = true;
       event.value = { key, data };
-      console.log(key, data);
+      console.log('useWs', key, data);
     });
   }
 
