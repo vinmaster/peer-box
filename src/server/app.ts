@@ -4,7 +4,7 @@ import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
 import env from '@fastify/env';
-import ws from '@fastify/websocket';
+import socketioServer from 'fastify-socket.io';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { createContext } from './lib/context';
 import { appRouter } from './routes/trpc';
@@ -16,27 +16,33 @@ const envOptions = {
   dotenv: true,
   schema: {
     type: 'object',
-    required: ['SENTRY_DSN'],
+    required: ['DOMAIN'],
     properties: {
+      DOMAIN: { type: 'string' },
       SENTRY_DSN: { type: 'string' },
     },
   },
 };
 
-export default (opts?: FastifyServerOptions) => {
+export default async (opts?: FastifyServerOptions) => {
   const fastify = Fastify(opts);
 
-  fastify.register(env, envOptions);
+  await fastify.register(env, envOptions);
   // fastify.register(helmet, { contentSecurityPolicy: false });
   fastify.register(cors);
   fastify.register(staticFiles, { root: path.join(__dirname, 'public') });
-  fastify.register(ws, { options: { maxPayload: 1048576 } });
+  fastify.register(socketioServer, {
+    cors: {
+      origin: process.env.DOMAIN,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    },
+  });
   fastify.register(fastifyTRPCPlugin, {
     prefix: '/trpc',
     trpcOptions: { router: appRouter, createContext },
   });
   fastify.register(apiRoutes, { prefix: 'api' });
-  fastify.register(wsRoutes, { prefix: 'ws' });
+  fastify.register(wsRoutes);
   fastify.setErrorHandler(appErrorHandler);
   fastify.setNotFoundHandler(appNotFoundHandler);
 

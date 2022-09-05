@@ -1,11 +1,10 @@
 import { createTRPCClient } from '@trpc/client';
 import superjson from 'superjson';
 import type { AppRouter } from '../../server/routes/trpc';
-
-export const IS_DEV = (import.meta as any).env.DEV;
+import { Util } from './util';
 
 export const client = createTRPCClient<AppRouter>({
-  url: IS_DEV
+  url: Util.IS_DEV
     ? `${window.location.protocol}//${window.location.hostname}:8000/trpc`
     : `${window.location.origin}/trpc`,
   transformer: superjson,

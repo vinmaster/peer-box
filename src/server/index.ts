@@ -8,7 +8,7 @@ process.on('unhandledRejection', e => {
 
 async function startServer() {
   try {
-    const app = fastify({
+    const app = await fastify({
       logger,
       pluginTimeout: 50000,
       bodyLimit: 15485760,

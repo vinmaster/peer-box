@@ -11,7 +11,8 @@ export function apiRoutes(fastify: FastifyInstance, opts, done) {
   });
 
   fastify.get('/info', async (request, reply) => {
-    return { id: request.id };
+    let { ip, ips, hostname, method, protocol } = request;
+    return { id: request.id, ip, ips, hostname, method, protocol };
   });
 
   fastify.get('/error', async (request, reply) => {

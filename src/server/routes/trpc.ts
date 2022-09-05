@@ -2,7 +2,7 @@ import { createRouter } from '../lib/context';
 import { z } from 'zod';
 import superjson from 'superjson';
 import { TRPCError } from '@trpc/server';
-import { Manager } from '../lib/manager';
+import { WebSocketService } from './ws';
 
 const authMiddleware = async ({ ctx, next, meta }: any) => {
   if (meta?.auth && !ctx.user) {
@@ -21,12 +21,12 @@ const createProtectedRouter = () => createRouter().middleware(authMiddleware);
 const roomRoutes = createRouter()
   .query('list', {
     async resolve() {
-      return Manager.list();
+      return [...WebSocketService.rooms.keys()];
     },
   })
   .mutation('create', {
     async resolve({ input, ctx }) {
-      return Manager.create();
+      return WebSocketService.createRoom().roomId;
     },
   });
 
