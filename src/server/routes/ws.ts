@@ -79,8 +79,8 @@ export class WebSocketService {
 
   static LEAVE_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
-    this.leaveRoom(roomId, socket.id);
     socket.leave(roomId);
+    this.leaveRoom(roomId, socket.id);
     console.log('leave room', roomId, socket.id);
   }
 
@@ -96,9 +96,10 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
     let { address, headers } = socket.handshake;
     let forwarded = (headers['x-forwarded-for'] as string) || '';
     console.log('connect', socket.id, address, forwarded.split(',')[0], headers.forwarded);
+    console.log('forwarded', forwarded);
+    console.log('headers', headers.forwarded);
 
     socket.onAny((key, data) => {
-      console.log('on any', key);
       WebSocketService[key](socket, data);
     });
 

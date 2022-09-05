@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router';
 import { client } from '../lib/trpc';
 import { useWs } from '../lib/useWs';
 import { Util } from '../lib/util';
+import { ClipboardIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
+import ClipboardJS from 'clipboard';
 
 interface Message {
   roomId: string;
@@ -47,6 +49,8 @@ watch(event, ({ key, data }: any) => {
   } else if (key === 'CHAT_MSG') {
     msgs.value.push(data);
     setTimeout(() => {
+      // @ts-ignore
+      new ClipboardJS('.copy-btn');
       const container = document.querySelector('.messages');
       container.scrollTop = container.scrollHeight;
     }, 50);
@@ -76,7 +80,7 @@ function LIST_ROOM(data) {
 </script>
 
 <template>
-  <div class="font-sans min-h-screen antialiased bg-gray-800 pt-12 pb-5 text-white">
+  <div class="font-sans antialiased bg-gray-800 pt-12 pb-5 text-white">
     <div class="flex flex-col justify-center sm:w-96 sm:m-auto mx-5 space-y-5">
       <div class="text-4xl text-center">Room {{ roomId }}</div>
       <div class="flex flex-col rounded-lg border border-gray-200">
@@ -94,9 +98,9 @@ function LIST_ROOM(data) {
           <div class="message m-2 p-4 pb-8 rounded max-w-full inline relative shadow"
             :class="[msg.sender === socketId ? 'bg-sky-500' : 'bg-gray-500']">
             <p class="message-content">{{ msg.text }}</p>
-            <!-- <a class="absolute right-0 top-0 copy" :data-clipboard-text="msg.text">
-              <i class="material-icons">content_copy</i>
-            </a> -->
+            <button class="absolute right-2 top-2 copy-btn" :data-clipboard-text="msg.text">
+              <ClipboardIcon class="h-4 w-4 text-white" />
+            </button>
             <div class="message-name absolute px-2 py-1 text-xs rounded left-0 bottom-0"
               :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ msg.sender }}
             </div>
@@ -111,7 +115,10 @@ function LIST_ROOM(data) {
       <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
         <!-- <input class="flex-1 p-2 rounded" type="text" v-model.trim="chatText" @keyup.enter="sendMsg" /> -->
         <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
-        <button class="w-16 space-x-2 justify-center text-white rounded-lg border ml-2" @click="sendMsg">Send</button>
+        <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border ml-2" @click="sendMsg">
+          Send
+          <PaperAirplaneIcon class="h-4 w-4 text-white" />
+        </button>
       </div>
     </div>
   </div>
@@ -124,5 +131,9 @@ function LIST_ROOM(data) {
 
 .message-content {
   white-space: pre;
+}
+
+.copy-btn {
+  cursor: pointer;
 }
 </style>
