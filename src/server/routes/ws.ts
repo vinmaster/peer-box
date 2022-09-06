@@ -6,6 +6,7 @@ import { Server, Socket } from 'socket.io';
 export interface RoomData {
   roomId: string;
   socketIds: string[];
+  ip?: string;
 }
 
 export class WebSocketService {
@@ -26,29 +27,28 @@ export class WebSocketService {
     return id;
   }
 
+  static async getSocketsByIp(ip?: string) {
+    let sockets = [];
+    if (ip) {
+      for (let socket of await this.io.fetchSockets()) {
+        if ((socket as any).ip === ip) sockets.push(socket);
+      }
+    }
+    return sockets;
+  }
+
   static createRoom(roomId?: string): RoomData {
     if (!roomId) roomId = this.newId();
     let room = { roomId, socketIds: [] };
     this.rooms.set(roomId, room);
-    this.io.emit('CREATE_ROOM', { roomId });
+    this.io.to('lobby').emit('CREATE_ROOM', { roomId });
 
     return room;
   }
 
   static destroyRoom(roomId: string) {
     this.rooms.delete(roomId);
-    this.io.emit('DESTROY_ROOM', { roomId });
-  }
-
-  static joinRoom(roomId: string, socketId: string) {
-    let room: RoomData;
-    if (this.rooms.has(roomId)) {
-      room = this.rooms.get(roomId)!;
-    } else {
-      room = this.createRoom(roomId);
-    }
-    if (!room.socketIds.includes(socketId)) room.socketIds.push(socketId);
-    this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
+    this.io.to('lobby').emit('DESTROY_ROOM', { roomId });
   }
 
   static leaveRoom(roomId: string, socketId: string) {
@@ -72,8 +72,18 @@ export class WebSocketService {
   static JOIN_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
     // socket.emit('LIST_ROOM', { socketIds: this.rooms.get(roomId)?.socketIds });
+    socket.leave('lobby');
     socket.join(roomId);
-    this.joinRoom(roomId, socket.id);
+    let room: RoomData;
+    if (this.rooms.has(roomId)) {
+      room = this.rooms.get(roomId)!;
+    } else {
+      room = this.createRoom(roomId);
+      let socketIp = (socket as any).ip;
+      if (socketIp) room.ip = socketIp;
+    }
+    if (!room.socketIds.includes(socket.id)) room.socketIds.push(socket.id);
+    this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
     console.log('join room', roomId, socket.id);
   }
 
@@ -93,11 +103,14 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
   WebSocketService.io = fastify.io;
 
   fastify.io.on('connection', socket => {
+    socket.join('lobby');
     let { address, headers } = socket.handshake;
     let forwarded = (headers['x-forwarded-for'] as string) || '';
-    console.log('connect', socket.id, address, forwarded.split(',')[0], headers.forwarded);
-    console.log('forwarded', forwarded);
-    console.log('headers', headers.forwarded);
+    console.log('connect', socket.id);
+    (socket as any).ip = forwarded.split(',')[0];
+    console.log('ip', (socket as any).ip);
+    // console.log('forwarded', forwarded);
+    // console.log('headers', headers.forwarded);
 
     socket.onAny((key, data) => {
       WebSocketService[key](socket, data);

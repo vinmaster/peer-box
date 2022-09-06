@@ -74,9 +74,6 @@ function sendMsg() {
   chatText.value = '';
 }
 
-function LIST_ROOM(data) {
-  console.log('LIST_ROOM socket on', data);
-}
 </script>
 
 <template>

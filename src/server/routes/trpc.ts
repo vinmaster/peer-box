@@ -20,8 +20,12 @@ const createProtectedRouter = () => createRouter().middleware(authMiddleware);
 
 const roomRoutes = createRouter()
   .query('list', {
-    async resolve() {
-      return [...WebSocketService.rooms.keys()];
+    async resolve({ ctx }) {
+      let roomIds = [];
+      for (let [roomId, room] of WebSocketService.rooms) {
+        if (room.ip && room.ip === ctx.req.ip) roomIds.push(roomId);
+      }
+      return roomIds;
     },
   })
   .mutation('create', {
