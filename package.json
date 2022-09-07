@@ -37,6 +37,7 @@
     "daisyui": "^2.19.0",
     "fastify": "^4.2.0",
     "fastify-socket.io": "^4.0.0",
+    "filepond": "^4.30.4",
     "pino-pretty": "^8.1.0",
     "postcss": "^8.4.14",
     "socket.io": "^4.5.1",

@@ -6,6 +6,8 @@ import { useWs } from '../lib/useWs';
 import { Util } from '../lib/util';
 import { ClipboardIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
 import ClipboardJS from 'clipboard';
+import * as FilePond from 'filepond';
+import 'filepond/dist/filepond.min.css';
 
 interface Message {
   roomId: string;
@@ -22,6 +24,8 @@ let socketId = ref(socket.id);
 let socketIds: Ref<string[]> = ref([]);
 let msgs: Ref<Message[]> = ref([]);
 let chatText = ref('');
+let upload = ref(null);
+let pond: FilePond.FilePond;
 
 onMounted(() => {
   // socket.close();
@@ -32,6 +36,13 @@ onMounted(() => {
   roomId.value = id as string;
   console.log('joining on mount');
   socket.emit('JOIN_ROOM', { roomId: id });
+  pond = FilePond.create(upload.value, {
+    instantUpload: false,
+    server: {
+      process,
+    }
+  });
+  console.log('pond', pond);
 });
 
 onUnmounted(() => {
@@ -57,6 +68,16 @@ watch(event, ({ key, data }: any) => {
   }
 });
 
+let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, load, error, progress, abort, transfer, options) => {
+  console.log(file, metadata);
+  return {
+    abort: () => {
+      console.log('aborting');
+      abort();
+    }
+  };
+};
+
 function sendMsg() {
   if (chatText.value.length === 0) return;
 
@@ -74,6 +95,9 @@ function sendMsg() {
   chatText.value = '';
 }
 
+function button1() {
+  console.log('click 1');
+}
 </script>
 
 <template>
@@ -87,7 +111,13 @@ function sendMsg() {
       </div>
     </div>
 
-    <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col overflow-hidden" style="min-height: 24rem;">
+    <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
+      <div class="text-2xl">Files</div>
+      <input class="upload-input" type="file" multiple ref="upload" />
+      <button @click="button1()">Button 1</button>
+    </div>
+
+    <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col max-h-80" style="min-height: 20rem;">
       <div class="text-2xl">Chat</div>
       <div class="messages flex-1 overflow-y-scroll border-box">
         <div v-for="(msg, index) in msgs" :key="index" class="message-row flex"
@@ -110,9 +140,9 @@ function sendMsg() {
         </div>
       </div>
       <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
-        <!-- <input class="flex-1 p-2 rounded" type="text" v-model.trim="chatText" @keyup.enter="sendMsg" /> -->
         <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
-        <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border ml-2" @click="sendMsg">
+        <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border ml-2"
+          @click="sendMsg">
           Send
           <PaperAirplaneIcon class="h-4 w-4 text-white" />
         </button>

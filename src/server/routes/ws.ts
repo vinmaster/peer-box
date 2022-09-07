@@ -62,7 +62,6 @@ export class WebSocketService {
 
   // EVENTS
   static disconnecting(socket: Socket) {
-    console.log('disconnecting', socket.id, socket.rooms);
     for (let roomId of socket.rooms) {
       if (roomId === socket.id) continue;
       this.leaveRoom(roomId, socket.id);
@@ -71,7 +70,6 @@ export class WebSocketService {
 
   static JOIN_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
-    // socket.emit('LIST_ROOM', { socketIds: this.rooms.get(roomId)?.socketIds });
     socket.leave('lobby');
     socket.join(roomId);
     let room: RoomData;
@@ -84,14 +82,12 @@ export class WebSocketService {
     }
     if (!room.socketIds.includes(socket.id)) room.socketIds.push(socket.id);
     this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
-    console.log('join room', roomId, socket.id);
   }
 
   static LEAVE_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
     socket.leave(roomId);
     this.leaveRoom(roomId, socket.id);
-    console.log('leave room', roomId, socket.id);
   }
 
   static CHAT_MSG(socket: Socket, data: any) {
@@ -104,29 +100,17 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
 
   fastify.io.on('connection', socket => {
     socket.join('lobby');
-    let { address, headers } = socket.handshake;
+    let { headers } = socket.handshake;
     let forwarded = (headers['x-forwarded-for'] as string) || '';
-    console.log('connect', socket.id);
     (socket as any).ip = forwarded.split(',')[0];
-    console.log('ip', (socket as any).ip);
-    // console.log('forwarded', forwarded);
-    // console.log('headers', headers.forwarded);
 
     socket.onAny((key, data) => {
       WebSocketService[key](socket, data);
     });
 
-    socket.on('disconnecting', async function () {
-      // let sockets = await fastify.io.fetchSockets();
-      // sockets.map(s => s.id),
+    socket.on('disconnecting', function () {
       WebSocketService['disconnecting'](socket);
     });
-
-    // socket.on('JOIN_ROOM', data => {
-    // });
-
-    // socket.on('LEAVE_ROOM', data => {
-    // });
   });
 
   done();
