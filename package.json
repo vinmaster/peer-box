@@ -8,7 +8,7 @@
     "build-client": "vite build --config vite.config.client.ts --ssrManifest",
     "build-server": "tsc --build tsconfig.server.json",
     "clean": "rm -rf build",
-    "start": "cross-env NODE_ENV=production node build/index.js",
+    "start": "cross-env NODE_ENV=production node build/server/index.js",
     "heroku-postbuild": "npm run build",
     "dev": "concurrently --raw \"npm:dev-*\"",
     "dev-client": "vite --config vite.config.client.ts",
