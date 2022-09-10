@@ -3,14 +3,13 @@ import { onMounted, onUnmounted, Ref, ref, watch } from 'vue';
 import { client } from '../lib/trpc';
 import { useWs } from '../lib/useWs';
 import { router } from '../router';
-import { Util } from '../lib/util';
+import { Util } from '../../common/util';
 
 let { isConnected, event, socket } = useWs();
 let roomIds: Ref<string[]> = ref([]);
 
 async function createRoom() {
   let roomId = await client.mutation('room.create');
-  console.log('roomId', roomId);
   router.push(`/rooms/${roomId}`);
 }
 

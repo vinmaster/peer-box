@@ -1,6 +1,6 @@
 import util from 'node:util';
 import { FastifyInstance } from 'fastify';
-import { Util } from '../lib/util';
+import { Util } from '../../common/util';
 import { Server, Socket } from 'socket.io';
 
 export interface RoomData {
@@ -92,6 +92,36 @@ export class WebSocketService {
 
   static CHAT_MSG(socket: Socket, data: any) {
     this.io.to(data.roomId).emit('CHAT_MSG', data);
+  }
+
+  // WebRTC
+  static PEERS_JOIN(socket: Socket, { roomId }: { roomId: string }) {
+    let socketIds = this.rooms.get(roomId).socketIds;
+
+    if (socketIds.length === 1) {
+      console.log('PEERS_JOIN', socket.id, roomId, 'only one');
+    } else {
+      console.log('PEERS_JOIN', socket.id, roomId, socketIds.length);
+      let lastSocketId = socketIds.at(-1);
+      for (let socketId of socketIds) {
+        if (socketId == lastSocketId) {
+          this.io.sockets.sockets.get(socketId).emit('PEERS_START', { socketIds, initiator: true });
+        } else {
+          this.io.sockets.sockets
+            .get(socketId)
+            .emit('PEERS_START', { socketIds, initiator: false });
+        }
+      }
+    }
+  }
+
+  static PEERS_SIGNAL(socket: Socket, data: any) {
+    let { roomId, socketId, signal } = data;
+    console.log('PEERS_SIGNAL', socket.id, socketId);
+    socket.broadcast.to(roomId).emit('PEERS_SIGNAL', {
+      socketId,
+      signal,
+    });
   }
 }
 

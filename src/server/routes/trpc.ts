@@ -23,7 +23,9 @@ const roomRoutes = createRouter()
     async resolve({ ctx }) {
       let roomIds = [];
       for (let [roomId, room] of WebSocketService.rooms) {
-        if (room.ip && room.ip === ctx.req.ip) roomIds.push(roomId);
+        if (process.env.NODE_ENV === 'development' || (room.ip && room.ip === ctx.req.ip)) {
+          roomIds.push(roomId);
+        }
       }
       return roomIds;
     },

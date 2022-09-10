@@ -22,6 +22,8 @@
   },
   "license": "ISC",
   "dependencies": {
+    "@esbuild-plugins/node-globals-polyfill": "^0.1.1",
+    "@esbuild-plugins/node-modules-polyfill": "^0.1.4",
     "@fastify/cors": "^8.0.0",
     "@fastify/env": "^4.0.0",
     "@fastify/helmet": "^9.1.0",
@@ -40,6 +42,7 @@
     "filepond": "^4.30.4",
     "pino-pretty": "^8.1.0",
     "postcss": "^8.4.14",
+    "simple-peer": "^9.11.1",
     "socket.io": "^4.5.1",
     "socket.io-client": "^4.5.1",
     "superjson": "^1.9.1",

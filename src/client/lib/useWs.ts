@@ -1,4 +1,3 @@
-import { Util } from './util';
 import { reactive, ref } from 'vue';
 import { io } from 'socket.io-client';
 
@@ -7,7 +6,9 @@ export interface Event {
   data?: any;
 }
 
-let socket = io(Util.IS_DEV ? `ws://localhost:8000` : `wss://${window.location.host}`);
+let socket = io(
+  (import.meta as any).env.DEV ? `ws://localhost:8000` : `wss://${window.location.host}`
+);
 let isSetup = false;
 let isConnected = ref(false);
 let event = ref<Event>({ key: '' });
@@ -17,7 +18,6 @@ export function useWs() {
     socket.onAny((key, data) => {
       isConnected.value = true;
       event.value = { key, data };
-      console.log('useWs', key, data);
     });
   }
 

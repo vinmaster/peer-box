@@ -3,10 +3,10 @@ import { computed, onMounted, onUnmounted, Ref, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { client } from '../lib/trpc';
 import { useWs } from '../lib/useWs';
-import { Util } from '../lib/util';
-import { ClipboardIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
-import ClipboardJS from 'clipboard';
+import { Util } from '../../common/util';
 import * as FilePond from 'filepond';
+import { SimpleMultiPeer } from '../lib/simple-multi-peer';
+import Chat from './Chat.vue';
 import 'filepond/dist/filepond.min.css';
 
 interface Message {
@@ -19,52 +19,58 @@ interface Message {
 
 let route = useRoute();
 let roomId = ref('');
+let isReady = ref(false);
 let { isConnected, event, socket } = useWs();
 let socketId = ref(socket.id);
 let socketIds: Ref<string[]> = ref([]);
-let msgs: Ref<Message[]> = ref([]);
-let chatText = ref('');
 let upload = ref(null);
 let pond: FilePond.FilePond;
+let peerConnection: SimpleMultiPeer;
 
 onMounted(() => {
   // socket.close();
-  let { id } = route.params;
+  let { id } = route.params as { id?: string };
   if (!id) {
-    throw new Error('No id found');
+    throw new Error('No room id found');
   }
   roomId.value = id as string;
-  console.log('joining on mount');
   socket.emit('JOIN_ROOM', { roomId: id });
+  peerConnection = new SimpleMultiPeer({ socket, roomId: id, callbacks: {
+    connect: (socketId) => {
+      console.log('connect', socketId);
+    },
+    signal: (socketId) => {
+      console.log('signal', socketId);
+    },
+    data: (socketId, data) => {
+      console.log('data', socketId, JSON.parse(data));
+    },
+    close: (socketId) => {
+      console.log('close', socketId);
+    },
+  } });
+
   pond = FilePond.create(upload.value, {
     instantUpload: false,
     server: {
       process,
     }
   });
-  console.log('pond', pond);
 });
 
 onUnmounted(() => {
+  console.log('unmount');
   socket.emit('LEAVE_ROOM', { roomId: roomId.value });
 });
 
 watch(isConnected, () => {
   if (!socketId.value) socketId.value = socket?.id;
+  isReady.value = isConnected.value;
 });
 
 watch(event, ({ key, data }: any) => {
-  console.log('new event', key, data);
   if (key === 'LIST_ROOM') {
     socketIds.value = data.socketIds;
-  } else if (key === 'CHAT_MSG') {
-    msgs.value.push(data);
-    setTimeout(() => {
-      // @ts-ignore
-      new ClipboardJS('.copy-btn');
-      const container = document.querySelector('.messages');
-      container.scrollTop = container.scrollHeight;
-    }, 50);
   }
 });
 
@@ -78,25 +84,10 @@ let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, 
   };
 };
 
-function sendMsg() {
-  if (chatText.value.length === 0) return;
-
-  let type = 'text';
-  if (chatText.value.includes('http') || chatText.value.endsWith('.com')) type = 'link';
-
-  socket.emit('CHAT_MSG', {
-    roomId: roomId.value,
-    type,
-    sender: socketId.value,
-    text: chatText.value,
-    timestamp: +new Date(),
-  });
-
-  chatText.value = '';
-}
-
 function button1() {
-  console.log('click 1');
+  console.log('click 1', peerConnection.peers.size);
+  pond.addFile('files');
+  peerConnection.sendStringify('test data');
 }
 </script>
 
@@ -112,41 +103,13 @@ function button1() {
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
-      <div class="text-2xl">Files</div>
+      <div class="text-2xl mb-2">Files<span class="ml-2 p-1 text-sm rounded" :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span></div>
       <input class="upload-input" type="file" multiple ref="upload" />
-      <button @click="button1()">Button 1</button>
+      <button class="py-2 rounded-lg border border-gray-200" @click="button1()">Button 1</button>
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col max-h-80" style="min-height: 20rem;">
-      <div class="text-2xl">Chat</div>
-      <div class="messages flex-1 overflow-y-scroll border-box">
-        <div v-for="(msg, index) in msgs" :key="index" class="message-row flex"
-          :class="[msg.sender === socketId ? 'flex-row-reverse' : 'flex-row']">
-          <div class="message m-2 p-4 pb-8 rounded max-w-full inline relative shadow"
-            :class="[msg.sender === socketId ? 'bg-sky-500' : 'bg-gray-500']">
-            <p class="message-content">{{ msg.text }}</p>
-            <button class="absolute right-2 top-2 copy-btn" :data-clipboard-text="msg.text">
-              <ClipboardIcon class="h-4 w-4 text-white" />
-            </button>
-            <div class="message-name absolute px-2 py-1 text-xs rounded left-0 bottom-0"
-              :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ msg.sender }}
-            </div>
-            <div class="message-name absolute px-2 py-1 text-xs rounded right-0 bottom-0"
-              :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ new
-                  Date(msg.timestamp).toLocaleTimeString()
-              }}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
-        <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
-        <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border ml-2"
-          @click="sendMsg">
-          Send
-          <PaperAirplaneIcon class="h-4 w-4 text-white" />
-        </button>
-      </div>
+      <Chat :room-id="roomId"></Chat>
     </div>
   </div>
 </template>
