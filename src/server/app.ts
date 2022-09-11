@@ -30,7 +30,7 @@ export default async (opts?: FastifyServerOptions) => {
   await fastify.register(env, envOptions);
   // fastify.register(helmet, { contentSecurityPolicy: false });
   fastify.register(cors);
-  fastify.register(staticFiles, { root: path.join(__dirname, 'public') });
+  fastify.register(staticFiles, { root: path.join(__dirname, '..', 'public') });
   fastify.register(socketioServer, {
     cors: {
       origin: process.env.DOMAIN,
