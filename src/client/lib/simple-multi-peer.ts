@@ -55,6 +55,7 @@ export class SimpleMultiPeer {
   }
 
   close() {
+    this.peers.forEach(peer => peer.destroy());
     this.peers.clear();
   }
 

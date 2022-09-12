@@ -33,7 +33,7 @@ export default async (opts?: FastifyServerOptions) => {
   fastify.register(staticFiles, { root: path.join(__dirname, '..', 'public') });
   fastify.register(socketioServer, {
     cors: {
-      origin: process.env.DOMAIN,
+      origin: process.env.DOMAIN.split(','),
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     },
   });

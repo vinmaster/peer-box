@@ -60,16 +60,17 @@ onMounted(() => {
 
 onUnmounted(() => {
   console.log('unmount');
+  peerConnection.close();
   socket.emit('LEAVE_ROOM', { roomId: roomId.value });
 });
 
 watch(isConnected, () => {
   if (!socketId.value) socketId.value = socket?.id;
-  isReady.value = isConnected.value;
 });
 
 watch(event, ({ key, data }: any) => {
   if (key === 'LIST_ROOM') {
+    isReady.value = true;
     socketIds.value = data.socketIds;
   }
 });

@@ -68,6 +68,10 @@ export class WebSocketService {
     }
   }
 
+  static PING(socket: Socket) {
+    socket.emit('PONG', { timestamp: +new Date() });
+  }
+
   static JOIN_ROOM(socket: Socket, data: any) {
     let { roomId } = data;
     socket.leave('lobby');
