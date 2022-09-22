@@ -5,6 +5,11 @@ import GlobalsPolyfills from '@esbuild-plugins/node-globals-polyfill';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      'simple-peer': 'simple-peer/simplepeer.min.js',
+    },
+  },
   plugins: [vue()],
   root: './src/client',
   server: { host: true },

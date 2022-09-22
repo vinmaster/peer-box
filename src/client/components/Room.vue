@@ -56,6 +56,14 @@ onMounted(() => {
       process,
     }
   });
+
+  pond.on('addfile', (error, file: FilePond.FilePondFile) => {
+    if (Object.keys(file.getMetadata()).length === 0) {
+      file.setMetadata('socketId', socketId.value);
+      file.setMetadata('isDone', true);
+    }
+    console.log('metadata', file);
+  })
 });
 
 onUnmounted(() => {
