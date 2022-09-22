@@ -6,8 +6,11 @@ export interface Event {
   data?: any;
 }
 
+let protocol = location.protocol === 'http:' ? 'ws' : 'wss';
 let socket = io(
-  (import.meta as any).env.DEV ? `ws://localhost:8000` : `wss://${window.location.host}`
+  (import.meta as any).env.DEV
+    ? `${protocol}://localhost:8000`
+    : `${protocol}://${window.location.host}`
 );
 let isSetup = false;
 let isConnected = ref(false);

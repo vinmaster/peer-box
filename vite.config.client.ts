@@ -12,7 +12,7 @@ export default defineConfig({
   },
   plugins: [vue()],
   root: './src/client',
-  server: { host: true },
+  server: { host: true, port: 3000 },
   build: {
     outDir: '../../build/public',
     emptyOutDir: false,
