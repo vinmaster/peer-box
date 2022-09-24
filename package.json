@@ -11,7 +11,8 @@
     "start": "cross-env NODE_ENV=production node build/server/index.js",
     "dev": "concurrently --raw \"npm:dev-*\"",
     "dev-client": "vite --config vite.config.client.ts",
-    "dev-server": "cross-env NODE_ENV=development ts-node-dev --files --project tsconfig.server.json --respawn ./src/server/index.ts",
+    "dev-server": "cross-env NODE_ENV=development ts-node-dev --files --project tsconfig.server.json --respawn --inspect=4321 ./src/server/index.ts",
+    "console": "cross-env NODE_ENV=development ts-node-dev --transpile-only ./src/server/console.ts",
     "test": "vitest",
     "coverage": "vitest --coverage"
   },

@@ -29,26 +29,28 @@ let peerConnection: SimpleMultiPeer;
 
 onMounted(() => {
   // socket.close();
-  let { id } = route.params as { id?: string };
+  let { id } = route.params as { id?: string; };
   if (!id) {
     throw new Error('No room id found');
   }
   roomId.value = id as string;
   socket.emit('JOIN_ROOM', { roomId: id });
-  peerConnection = new SimpleMultiPeer({ socket, roomId: id, callbacks: {
-    connect: (socketId) => {
-      console.log('connect', socketId);
-    },
-    signal: (socketId) => {
-      console.log('signal', socketId);
-    },
-    data: (socketId, data) => {
-      console.log('data', socketId, JSON.parse(data));
-    },
-    close: (socketId) => {
-      console.log('close', socketId);
-    },
-  } });
+  peerConnection = new SimpleMultiPeer({
+    socket, roomId: id, callbacks: {
+      connect: (socketId) => {
+        console.log('connect', socketId);
+      },
+      signal: (socketId) => {
+        console.log('signal', socketId);
+      },
+      data: (socketId, data) => {
+        console.log('data', socketId, JSON.parse(data));
+      },
+      close: (socketId) => {
+        console.log('close', socketId);
+      },
+    }
+  });
 
   pond = FilePond.create(upload.value, {
     instantUpload: false,
@@ -63,7 +65,7 @@ onMounted(() => {
       file.setMetadata('isDone', true);
     }
     console.log('metadata', file);
-  })
+  });
 });
 
 onUnmounted(() => {
@@ -95,7 +97,7 @@ let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, 
 
 function button1() {
   console.log('click 1', peerConnection.peers.size);
-  pond.addFile('files');
+  pond.addFile('files', { type: 'local' });
   peerConnection.sendStringify('test data');
 }
 </script>
@@ -112,7 +114,8 @@ function button1() {
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
-      <div class="text-2xl mb-2">Files<span class="ml-2 p-1 text-sm rounded" :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span></div>
+      <div class="text-2xl mb-2">Files<span class="ml-2 p-1 text-sm rounded"
+          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span></div>
       <input class="upload-input" type="file" multiple ref="upload" />
       <button class="py-2 rounded-lg border border-gray-200" @click="button1()">Button 1</button>
     </div>
