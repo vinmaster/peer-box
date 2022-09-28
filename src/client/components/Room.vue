@@ -160,7 +160,7 @@ function onUpload() {
           <li class="file-item">
             <div class="flex flex-col">
               <label>{{ file.filename }}</label>
-              <label class="text-xs text-gray-400">{{ file.fileSize }} - {{ new Date(file.lastModified).toLocaleString() }}</label>
+              <label class="text-xs text-gray-400">{{ Util.formatBytes(file.fileSize) }} - {{ new Date(file.lastModified).toLocaleString() }}</label>
             </div>
             <ArrowDownTrayIcon class="h-4 w-4 text-white" />
           </li>
