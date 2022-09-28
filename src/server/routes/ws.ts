@@ -108,7 +108,7 @@ export class WebSocketService {
       console.log('PEERS_JOIN', socket.id, roomId, socketIds.length);
       let lastSocketId = socketIds.at(-1);
       for (let socketId of socketIds) {
-        if (socketId == lastSocketId) {
+        if (socketId === lastSocketId) {
           this.io.sockets.sockets.get(socketId).emit('PEERS_START', { socketIds, initiator: true });
         } else {
           this.io.sockets.sockets

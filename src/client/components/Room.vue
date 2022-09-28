@@ -7,6 +7,7 @@ import { Util } from '../../common/util';
 import * as FilePond from 'filepond';
 import { SimpleMultiPeer } from '../lib/simple-multi-peer';
 import Chat from './Chat.vue';
+import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 import 'filepond/dist/filepond.min.css';
 
 interface Message {
@@ -17,10 +18,21 @@ interface Message {
   timestamp: number;
 }
 
+interface IncomingFile {
+  payloadType: string;
+  id: string;
+  filename: string;
+  fileSize: number;
+  fileType: string;
+  fileExt: string;
+  lastModified: number;
+}
+
 let route = useRoute();
 let roomId = ref('');
 let isReady = ref(false);
 let { isConnected, event, socket } = useWs();
+let filesIncoming: Ref<IncomingFile[]> = ref([]);
 let socketId = ref(socket.id);
 let socketIds: Ref<string[]> = ref([]);
 let upload = ref(null);
@@ -35,6 +47,15 @@ onMounted(() => {
   }
   roomId.value = id as string;
   socket.emit('JOIN_ROOM', { roomId: id });
+  filesIncoming.value.push({
+    "payloadType": "ADD_FILE",
+    "id": "ymgzz1p64",
+    "filename": "Android Bluetooth SDK Documentation (12.0).pdf",
+    "fileSize": 312443,
+    "fileType": "application/pdf",
+    "fileExt": "pdf",
+    "lastModified": 1632511628839
+  });
   peerConnection = new SimpleMultiPeer({
     socket, roomId: id, callbacks: {
       connect: (socketId) => {
@@ -44,7 +65,16 @@ onMounted(() => {
         console.log('signal', socketId);
       },
       data: (socketId, data) => {
-        console.log('data', socketId, JSON.parse(data));
+        try {
+          let parsed = JSON.parse(data);
+          console.log('data', socketId, parsed);
+          if (parsed.payloadType === 'ADD_FILE') {
+            delete parsed.payloadType;
+            filesIncoming.value.push(parsed);
+          }
+        } catch (error) {
+
+        }
       },
       close: (socketId) => {
         console.log('close', socketId);
@@ -65,6 +95,15 @@ onMounted(() => {
       file.setMetadata('isDone', true);
     }
     console.log('metadata', file);
+    peerConnection.sendStringify({
+      payloadType: 'ADD_FILE',
+      id: file.id,
+      filename: file.filename,
+      fileSize: file.fileSize,
+      fileType: file.fileType,
+      fileExt: file.fileExtension,
+      lastModified: file.file.lastModified,
+    });
   });
 });
 
@@ -95,9 +134,8 @@ let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, 
   };
 };
 
-function button1() {
+function onUpload() {
   console.log('click 1', peerConnection.peers.size);
-  pond.addFile('files', { type: 'local' });
   peerConnection.sendStringify('test data');
 }
 </script>
@@ -114,10 +152,23 @@ function button1() {
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
-      <div class="text-2xl mb-2">Files<span class="ml-2 p-1 text-sm rounded"
-          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span></div>
+      <div class="text-2xl mb-2">Files Received<span class="ml-2 p-1 text-sm rounded"
+          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span>
+      </div>
+      <div class="file-container mb-4">
+        <ul v-for="file in filesIncoming">
+          <li class="file-item">
+            <div class="flex flex-col">
+              <label>{{ file.filename }}</label>
+              <label class="text-xs text-gray-400">{{ file.fileSize }} - {{ new Date(file.lastModified).toLocaleString() }}</label>
+            </div>
+            <ArrowDownTrayIcon class="h-4 w-4 text-white" />
+          </li>
+        </ul>
+      </div>
+      <div class="text-2xl mb-2">Files Send</div>
       <input class="upload-input" type="file" multiple ref="upload" />
-      <button class="py-2 rounded-lg border border-gray-200" @click="button1()">Button 1</button>
+      <button class="font-bold py-2 rounded-lg border border-gray-200 bg-sky-500" @click="onUpload()">UPLOAD</button>
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col max-h-80" style="min-height: 20rem;">
@@ -137,5 +188,20 @@ function button1() {
 
 .copy-btn {
   cursor: pointer;
+}
+
+.file-container {
+  min-height: 4.75em;
+  background-color: #f1f0ef;
+  border-radius: 0.5em;
+  padding: 1em;
+}
+
+.file-item {
+  background-color: #64605e;
+  border-radius: 0.5em;
+  padding: 0.5625em;
+  display: flex;
+  align-items: center;
 }
 </style>
