@@ -69,14 +69,15 @@ onMounted(() => {
           let parsed = JSON.parse(data);
           console.log('data', socketId, parsed);
           if (parsed.payloadType === 'ADD_FILE') {
-            delete parsed.payloadType;
-            filesIncoming.value.push(parsed);
+            filesIncoming.value.push(parsed as IncomingFile);
+          } else if (parsed.payloadType === 'UPLOAD_START') {
           }
         } catch (error) {
 
         }
       },
       close: (socketId) => {
+        peerConnection.onPeerClose(socketId);
         console.log('close', socketId);
       },
     }
@@ -121,6 +122,8 @@ watch(event, ({ key, data }: any) => {
   if (key === 'LIST_ROOM') {
     isReady.value = true;
     socketIds.value = data.socketIds;
+  } else if (key === 'LEAVE_ROOM') {
+    peerConnection.onPeerClose(data.socketId);
   }
 });
 

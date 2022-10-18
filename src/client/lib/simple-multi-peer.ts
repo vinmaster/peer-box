@@ -123,7 +123,13 @@ export class SimpleMultiPeer {
     this.callbacks.stream && this.callbacks.stream(socketId, stream);
   }
 
-  private onPeerClose(socketId) {
+  onPeerClose(socketId) {
+    if (!this.peers.has(socketId)) {
+      console.error(`Socket id not found: ${socketId}`);
+      return;
+      // throw new Error(`Socket id not found: ${socketId}`);
+    }
+    this.peers.get(socketId).destroy();
     this.peers.delete(socketId);
     // console.log(`PEER closed to ${socketId}`);
     this.callbacks.close && this.callbacks.close(socketId);

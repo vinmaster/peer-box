@@ -56,7 +56,7 @@ export class WebSocketService {
       let room = this.rooms.get(roomId)!;
       Util.remove(room.socketIds, socketId);
       if (room.socketIds.length === 0) this.destroyRoom(roomId);
-      this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
+      this.io.to(roomId).emit('LEAVE_ROOM', { socketIds: room?.socketIds, socketId });
     }
   }
 

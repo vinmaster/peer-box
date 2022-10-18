@@ -1,8 +1,13 @@
 import fastify from './app';
 import logger from './lib/logger';
 
-process.on('unhandledRejection', e => {
-  console.error(e);
+process.on('uncaughtException', e => {
+  console.error(e, e.stack);
+  console.trace();
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason: any, p) => {
+  console.error(p, reason, reason ? reason.stack : undefined);
   process.exit(1);
 });
 
