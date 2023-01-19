@@ -127,6 +127,11 @@ export class WebSocketService {
       signal,
     });
   }
+
+  static ADD_FILE(socket: Socket, data: any) {
+    console.log('add file', data);
+    socket.to(data.roomId).emit('ADD_FILE', data);
+  }
 }
 
 export function wsRoutes(fastify: FastifyInstance, opts, done) {

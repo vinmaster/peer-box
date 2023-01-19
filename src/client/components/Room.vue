@@ -46,6 +46,7 @@ onMounted(() => {
     throw new Error('No room id found');
   }
   roomId.value = id as string;
+  registerSocket();
   socket.emit('JOIN_ROOM', { roomId: id });
   filesIncoming.value.push({
     "payloadType": "ADD_FILE",
@@ -56,32 +57,33 @@ onMounted(() => {
     "fileExt": "pdf",
     "lastModified": 1632511628839
   });
-  peerConnection = new SimpleMultiPeer({
-    socket, roomId: id, callbacks: {
-      connect: (socketId) => {
-        console.log('connect', socketId);
-      },
-      signal: (socketId) => {
-        console.log('signal', socketId);
-      },
-      data: (socketId, data) => {
-        try {
-          let parsed = JSON.parse(data);
-          console.log('data', socketId, parsed);
-          if (parsed.payloadType === 'ADD_FILE') {
-            filesIncoming.value.push(parsed as IncomingFile);
-          } else if (parsed.payloadType === 'UPLOAD_START') {
-          }
-        } catch (error) {
+  // peerConnection = new SimpleMultiPeer({
+  //   socket, roomId: id, callbacks: {
+  //     connect: (socketId) => {
+  //       console.log('connect', socketId);
+  //     },
+  //     signal: (socketId) => {
+  //       console.log('signal', socketId);
+  //     },
+  //     data: (socketId, data) => {
+  //       try {
+  //         let parsed = JSON.parse(data);
+  //         console.log('data', socketId, parsed);
+  //         if (parsed.payloadType === 'ADD_FILE') {
+  //           filesIncoming.value.push(parsed as IncomingFile);
+  //         } else if (parsed.payloadType === 'UPLOAD_START') {
+  //         }
+  //       } catch (error) {
 
-        }
-      },
-      close: (socketId) => {
-        peerConnection.onPeerClose(socketId);
-        console.log('close', socketId);
-      },
-    }
-  });
+  //       }
+  //     },
+  //     close: (socketId) => {
+  //       peerConnection.onPeerClose(socketId);
+  //       console.log('close', socketId);
+  //     },
+  //   }
+  // });
+  peerConnection = {} as any;
 
   pond = FilePond.create(upload.value, {
     instantUpload: false,
@@ -96,8 +98,8 @@ onMounted(() => {
       file.setMetadata('isDone', true);
     }
     console.log('metadata', file);
-    peerConnection.sendStringify({
-      payloadType: 'ADD_FILE',
+    socket.emit('ADD_FILE', {
+      roomId: roomId.value,
       id: file.id,
       filename: file.filename,
       fileSize: file.fileSize,
@@ -105,12 +107,22 @@ onMounted(() => {
       fileExt: file.fileExtension,
       lastModified: file.file.lastModified,
     });
+    // peerConnection.sendStringify({
+    //   payloadType: 'ADD_FILE',
+    //   id: file.id,
+    //   filename: file.filename,
+    //   fileSize: file.fileSize,
+    //   fileType: file.fileType,
+    //   fileExt: file.fileExtension,
+    //   lastModified: file.file.lastModified,
+    // });
   });
 });
 
 onUnmounted(() => {
   console.log('unmount');
-  peerConnection.close();
+  // peerConnection.close();
+  unregisterSocket();
   socket.emit('LEAVE_ROOM', { roomId: roomId.value });
 });
 
@@ -123,7 +135,7 @@ watch(event, ({ key, data }: any) => {
     isReady.value = true;
     socketIds.value = data.socketIds;
   } else if (key === 'LEAVE_ROOM') {
-    peerConnection.onPeerClose(data.socketId);
+    // peerConnection.onPeerClose(data.socketId);
   }
 });
 
@@ -137,14 +149,25 @@ let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, 
   };
 };
 
+function registerSocket() {
+  socket.on('ADD_FILE', (data: any) => {
+    console.log('add file', data);
+    filesIncoming.value.push(data);
+  });
+}
+
+function unregisterSocket() {
+  socket.off('ADD_FILE');
+}
+
 function onUpload() {
   console.log('click 1', peerConnection.peers.size);
-  peerConnection.sendStringify('test data');
+  // peerConnection.sendStringify('test data');
 }
 </script>
 
 <template>
-  <div class="font-sans antialiased bg-gray-800 pt-12 pb-5 text-white">
+  <div class="font-sans antialiased bg-gray-800 pt-12 p-5 text-white">
     <div class="flex flex-col justify-center sm:w-96 sm:m-auto mx-5 space-y-5">
       <div class="text-4xl text-center">Room {{ roomId }}</div>
       <div class="flex flex-col rounded-lg border border-gray-200">
@@ -156,14 +179,16 @@ function onUpload() {
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
       <div class="text-2xl mb-2">Files Received<span class="ml-2 p-1 text-sm rounded"
-          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span>
+          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady? 'Ready': 'Waiting' }}</span>
       </div>
       <div class="file-container mb-4">
-        <ul v-for="file in filesIncoming">
-          <li class="file-item">
+        <ul class="grid gap-2">
+          <li class="file-item" v-for="file in filesIncoming">
             <div class="flex flex-col">
               <label>{{ file.filename }}</label>
-              <label class="text-xs text-gray-400">{{ Util.formatBytes(file.fileSize) }} - {{ new Date(file.lastModified).toLocaleString() }}</label>
+              <label class="text-xs text-gray-400">{{ Util.formatBytes(file.fileSize) }} - {{
+                new Date(file.lastModified).toLocaleString()
+              }}</label>
             </div>
             <ArrowDownTrayIcon class="h-4 w-4 text-white" />
           </li>

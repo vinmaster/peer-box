@@ -84,7 +84,7 @@ function clearMsgs() {
   </div>
   <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
     <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
-    <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border ml-2" @click="sendMsg">
+    <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border-4 border-sky-600 bg-sky-600 ml-2" @click="sendMsg">
       Send
       <PaperAirplaneIcon class="h-4 w-4 text-white" />
     </button>

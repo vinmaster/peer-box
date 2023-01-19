@@ -131,7 +131,7 @@ export class SimpleMultiPeer {
     }
     this.peers.get(socketId).destroy();
     this.peers.delete(socketId);
-    // console.log(`PEER closed to ${socketId}`);
+    console.log(`PEER closed to ${socketId}`);
     this.callbacks.close && this.callbacks.close(socketId);
   }
 }
