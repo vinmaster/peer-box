@@ -132,6 +132,17 @@ export class WebSocketService {
     console.log('add file', data);
     socket.to(data.roomId).emit('ADD_FILE', data);
   }
+
+  static REMOVE_FILE(socket: Socket, data: any) {
+    console.log('remove file', data);
+    socket.to(data.roomId).emit('REMOVE_FILE', data);
+  }
+
+  static UPLOAD_FILE(socket: Socket, data: any) {
+    console.log('upload file', data.id);
+    console.log('data', data);
+    socket.to(data.roomId).emit('UPLOAD_FILE', data);
+  }
 }
 
 export function wsRoutes(fastify: FastifyInstance, opts, done) {
