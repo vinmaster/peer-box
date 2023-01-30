@@ -84,8 +84,9 @@ export class WebSocketService {
       let socketIp = (socket as any).ip;
       if (socketIp) room.ip = socketIp;
     }
+    console.log(socket.id, 'joined', room.ip);
     if (!room.socketIds.includes(socket.id)) room.socketIds.push(socket.id);
-    this.io.to(roomId).emit('LIST_ROOM', { socketIds: room?.socketIds });
+    this.io.to(roomId).emit('LIST_ROOM', { users: room?.socketIds });
   }
 
   static LEAVE_ROOM(socket: Socket, data: any) {
@@ -129,19 +130,23 @@ export class WebSocketService {
   }
 
   static ADD_FILE(socket: Socket, data: any) {
-    console.log('add file', data);
     socket.to(data.roomId).emit('ADD_FILE', data);
   }
 
   static REMOVE_FILE(socket: Socket, data: any) {
-    console.log('remove file', data);
     socket.to(data.roomId).emit('REMOVE_FILE', data);
   }
 
   static UPLOAD_FILE(socket: Socket, data: any) {
-    console.log('upload file', data.id);
-    console.log('data', data);
     socket.to(data.roomId).emit('UPLOAD_FILE', data);
+  }
+
+  static ABORT_FILE(socket: Socket, data: any) {
+    socket.to(data.roomId).emit('ABORT_FILE', data);
+  }
+
+  static COMPLETED_FILE(socket: Socket, data: any) {
+    socket.to(data.roomId).emit('COMPLETED_FILE', data);
   }
 }
 
@@ -155,6 +160,10 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
     (socket as any).ip = forwarded.split(',')[0];
 
     socket.onAny((key, data) => {
+      if (!WebSocketService[key]) {
+        console.log(key, 'is missing', data);
+        return;
+      }
       WebSocketService[key](socket, data);
     });
 

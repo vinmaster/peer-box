@@ -1,4 +1,8 @@
 export class Util {
+  static sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   static generateId(length = 4): string {
     let max = Math.pow(10, length) - 1;
     let num = Math.floor(Math.random() * max) + 1;
@@ -10,7 +14,7 @@ export class Util {
     if (index !== -1) array.splice(index, 1);
   }
 
-  static formatBytes(bytes, decimals = 2) {
+  static formatBytes(bytes: number, decimals = 2) {
     if (bytes === undefined || bytes === null) return 'No info';
     if (bytes === 0) return '0 Bytes';
 

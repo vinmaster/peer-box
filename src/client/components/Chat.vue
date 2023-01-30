@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, Ref, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue';
 import { ClipboardIcon, PaperAirplaneIcon, TrashIcon } from '@heroicons/vue/24/outline';
 import ClipboardJS from 'clipboard';
 import { useWs } from '../lib/useWs';
@@ -20,6 +20,7 @@ let { isConnected, event, socket } = useWs();
 let socketId = ref(socket.id);
 let msgs: Ref<Message[]> = ref([]);
 let chatText = ref('');
+let clipboard = ref();
 
 watch(isConnected, () => {
   if (!socketId.value) socketId.value = socket?.id;
@@ -28,14 +29,19 @@ watch(isConnected, () => {
 watch(event, ({ key, data }: any) => {
   if (key === 'CHAT_MSG') {
     msgs.value.push(data);
-    setTimeout(() => {
-      // @ts-ignore
-      new ClipboardJS('.copy-btn');
+    nextTick(() => {
+      clipboard.value = new ClipboardJS('.copy-btn');
       const container = document.querySelector('.messages');
       container.scrollTop = container.scrollHeight;
-    }, 50);
+    });
+    // setTimeout(() => {
+    // }, 50);
   }
 });
+
+onUnmounted(() => {
+  clipboard.value?.destroy();
+})
 
 function sendMsg() {
   if (chatText.value.length === 0) return;
@@ -58,9 +64,10 @@ function clearMsgs() {
   msgs.value = [];
 }
 </script>
-  
+
 <template>
-  <div class="text-2xl flex items-center">Chat <TrashIcon class="h-4 w-4 text-white cursor-pointer" @click="clearMsgs"></TrashIcon>
+  <div class="text-2xl flex items-center">Chat <TrashIcon class="h-4 w-4 text-white cursor-pointer" @click="clearMsgs">
+    </TrashIcon>
   </div>
   <div class="messages flex-1 overflow-y-scroll border-box">
     <div v-for="(msg, index) in msgs" :key="index" class="message-row flex"
@@ -75,8 +82,9 @@ function clearMsgs() {
           :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ msg.sender }}
         </div>
         <div class="message-name absolute px-2 py-1 text-xs rounded right-0 bottom-0"
-          :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ new
-          Date(msg.timestamp).toLocaleTimeString()
+          :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{
+            new
+                    Date(msg.timestamp).toLocaleTimeString()
           }}
         </div>
       </div>
@@ -84,13 +92,15 @@ function clearMsgs() {
   </div>
   <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
     <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
-    <button class="flex items-center w-16 space-x-2 justify-center text-white rounded-lg border-4 border-sky-600 bg-sky-600 ml-2" @click="sendMsg">
+    <button
+      class="btn btn-success flex items-center w-18 gap-2 justify-center ml-2 font-bold"
+      @click="sendMsg">
       Send
-      <PaperAirplaneIcon class="h-4 w-4 text-white" />
+      <PaperAirplaneIcon class="h-4 w-4 text-black" />
     </button>
   </div>
 </template>
-  
+
 <style scoped>
 .message {
   min-width: 16rem;
@@ -104,4 +114,3 @@ function clearMsgs() {
   cursor: pointer;
 }
 </style>
-  

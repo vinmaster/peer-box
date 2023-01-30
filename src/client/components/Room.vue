@@ -29,16 +29,19 @@ interface IncomingFile {
   lastModified: number;
 }
 
+// 0.5 MiB
+const CHUNK_SIZE = 524288;
 let route = useRoute();
 let roomId = ref('');
 let isReady = ref(false);
 let { isConnected, event, socket } = useWs();
 let filesIncoming: Ref<IncomingFile[]> = ref([]);
 let socketId = ref(socket.id);
-let socketIds: Ref<string[]> = ref([]);
+let users: Ref<string[]> = ref([]);
 let uploadElement = ref(null);
 let pond: FilePond.FilePond;
 let peerConnection: SimpleMultiPeer;
+let uploaderMetadata: Record<string, { completed: number, load: Function; }> = {};
 
 onMounted(() => {
   // socket.close();
@@ -91,16 +94,15 @@ onMounted(() => {
     instantUpload: false,
     server: {
       process,
+      revert,
     }
   });
 
   pond.on('addfile', (error, file: FilePond.FilePondFile) => {
     if (Object.keys(file.getMetadata()).length === 0) {
       file.setMetadata('socketId', socketId.value);
-      file.setMetadata('currentFileSize', 0);
       file.setMetadata('id', file.id);
     }
-    console.log('addfile', file);
     socket.emit('ADD_FILE', {
       roomId: roomId.value,
       id: file.id,
@@ -123,7 +125,6 @@ onMounted(() => {
   });
 
   pond.on('removefile', (error, file: FilePond.FilePondFile) => {
-    console.log('removefile', file.getMetadata());
     socket.emit('REMOVE_FILE', {
       roomId: roomId.value,
       id: file.id,
@@ -145,7 +146,7 @@ watch(isConnected, () => {
 watch(event, ({ key, data }: any) => {
   if (key === 'LIST_ROOM') {
     isReady.value = true;
-    socketIds.value = data.socketIds;
+    users.value = data.users;
   } else if (key === 'LEAVE_ROOM') {
     // peerConnection.onPeerClose(data.socketId);
   }
@@ -153,21 +154,44 @@ watch(event, ({ key, data }: any) => {
 
 let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, load, error, progress, abort, transfer, options) => {
   console.log('process', file, metadata);
+  uploaderMetadata[metadata.id] = {
+    completed: 0,
+    load,
+  };
   upload(file, metadata);
+
   return {
     abort: () => {
       console.log('aborting');
+      metadata.abort = true;
+      socket.emit('ABORT_FILE', {
+        roomId: roomId.value,
+        id: metadata.id,
+      });
       abort();
     }
   };
 };
+let revert: FilePond.RevertServerConfigFunction = (uniqueFileId, load, error) => {
+  socket.emit('ABORT_FILE', {
+    roomId: roomId.value,
+    id: uniqueFileId,
+  });
+};
 
 async function upload(file, metadata) {
-  socket.emit('UPLOAD_FILE', {
-    roomId: roomId.value,
-    id: metadata.id,
-    arrayBuffer: await file.arrayBuffer(),
-  });
+  let arrayBuffer = await file.arrayBuffer() as ArrayBuffer;
+  for (let chunk = 0; chunk < arrayBuffer.byteLength; chunk += CHUNK_SIZE) {
+    if (metadata.abort) {
+      return;
+    }
+    socket.emit('UPLOAD_FILE', {
+      roomId: roomId.value,
+      id: metadata.id,
+      arrayBuffer: arrayBuffer.slice(chunk, chunk + CHUNK_SIZE),
+    });
+    await Util.sleep(1);
+  }
 }
 
 function readFile(file) {
@@ -209,19 +233,54 @@ function registerSocket() {
     if (index !== -1) filesIncoming.value.splice(index, 1);
   });
   socket.on('UPLOAD_FILE', (data: any) => {
-    console.log('socket upload file', data);
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) {
-      filesIncoming.value[index].data = data.arrayBuffer;
-      filesIncoming.value[index].currentFileSize = filesIncoming.value[index].data.byteLength;
+      let file = filesIncoming.value[index];
+      if (file.data && !data.retry) {
+        file.data = arrayBufferAppend(file.data, data.arrayBuffer);
+      } else {
+        file.data = data.arrayBuffer;
+      }
+      file.currentFileSize = file.data.byteLength;
+
+      if (file.currentFileSize === file.fileSize) {
+        socket.emit('COMPLETED_FILE', {
+          roomId: roomId.value,
+          id: file.id,
+        });
+      }
     }
   });
+  socket.on('ABORT_FILE', (data: any) => {
+    let index = filesIncoming.value.findIndex(f => f.id === data.id);
+    if (index !== -1) {
+      delete filesIncoming.value[index].data;
+    }
+    filesIncoming.value[index].currentFileSize = 0;
+  });
+  socket.on('COMPLETED_FILE', (data: any) => {
+    console.log('completed');
+    if (!uploaderMetadata[data.id]) return;
+    let metadata = uploaderMetadata[data.id];
+    metadata.completed += 1;
+    metadata.load(data.id);
+    // metadata.progress(false, metadata.completed, users.value.length - 1);
+  });
+}
+
+function arrayBufferAppend(a: ArrayBuffer, b: ArrayBuffer): ArrayBuffer {
+  let arrayBuffer = new Uint8Array(a.byteLength + b.byteLength);
+  arrayBuffer.set(a as any, 0);
+  arrayBuffer.set(b as any, a.byteLength);
+  return arrayBuffer;
 }
 
 function unregisterSocket() {
   socket.off('ADD_FILE');
   socket.off('REMOVE_FILE');
   socket.off('UPLOAD_FILE');
+  socket.off('ABORT_FILE');
+  socket.off('COMPLETED_FILE');
 }
 
 function arrayBufferToBuffer(ab) {
@@ -238,6 +297,10 @@ function onUpload() {
   // console.log('click 1', peerConnection.peers.size);
   // peerConnection.sendStringify('test data');
 }
+
+function getUserAgent(id: string) {
+  return navigator.userAgent;
+}
 </script>
 
 <template>
@@ -246,7 +309,7 @@ function onUpload() {
       <div class="text-4xl text-center">Room {{ roomId }}</div>
       <div class="flex flex-col rounded-lg border border-gray-200">
         <div class="text-xl text-center p-2 bg-sky-500 rounded-t-lg">In this room</div>
-        <div class="border-t border-gray-200 w-full p-2" v-for="id in socketIds" :key="id">{{ id }}<span
+        <div class="border-t border-gray-200 w-full p-2" v-for="id in users" :key="id">{{ id }}<span
             v-if="id == socketId" class="text-sky-400"> (You)</span></div>
       </div>
     </div>
@@ -267,9 +330,11 @@ function onUpload() {
               </label>
             </div>
             <div class="ml-auto"></div>
-            <div>{{ filePercentage(file) }}%</div>
-            <ArrowDownTrayIcon class="h-4 w-4 text-black mr-2" v-if="file.currentFileSize === file.fileSize"
-              @click="download(file)" />
+            <progress class="progress w-56" :value="filePercentage(file)" max="100"></progress>
+            <div class="mx-2">{{ filePercentage(file) }}%</div>
+            <button class="mx-2 btn btn-success" v-if="file.currentFileSize === file.fileSize">
+              <ArrowDownTrayIcon class="h-4 w-4 text-black" @click="download(file)" />
+            </button>
           </li>
         </ul>
       </div>
