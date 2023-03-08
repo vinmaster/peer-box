@@ -66,7 +66,7 @@ function clearMsgs() {
 </script>
 
 <template>
-  <div class="text-2xl flex items-center">Chat <TrashIcon class="h-4 w-4 text-white cursor-pointer" @click="clearMsgs">
+  <div class="text-2xl flex items-center justify-between">Chat <TrashIcon class="h-8 w-8 text-white cursor-pointer p-1 m-1" @click="clearMsgs">
     </TrashIcon>
   </div>
   <div class="messages flex-1 overflow-y-scroll border-box">

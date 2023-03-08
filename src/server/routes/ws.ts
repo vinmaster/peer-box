@@ -2,10 +2,22 @@ import util from 'node:util';
 import { FastifyInstance } from 'fastify';
 import { Util } from '../../common/util';
 import { Server, Socket } from 'socket.io';
+import { SOCKET_EVENT } from '../../common/constants';
+
+export interface FileData {
+  socketId: string;
+  id: string;
+  filename: string;
+  fileSize: number;
+  fileType: string;
+  fileExt: string;
+  lastModified: string;
+}
 
 export interface RoomData {
   roomId: string;
   socketIds: string[];
+  files: FileData[];
   ip?: string;
 }
 
@@ -22,7 +34,7 @@ export class WebSocketService {
       tries += 1;
     } while (this.rooms.has(id) && tries < maxTries);
 
-    if (tries >= maxTries) throw new Error('Ran out of ids');
+    if (tries >= maxTries) throw new Error('Could not get new id');
 
     return id;
   }
@@ -39,10 +51,9 @@ export class WebSocketService {
 
   static createRoom(roomId?: string): RoomData {
     if (!roomId) roomId = this.newId();
-    let room = { roomId, socketIds: [] };
+    let room = { roomId, socketIds: [], files: [] };
     this.rooms.set(roomId, room);
     this.io.to('lobby').emit('CREATE_ROOM', { roomId });
-
     return room;
   }
 
@@ -85,7 +96,9 @@ export class WebSocketService {
       if (socketIp) room.ip = socketIp;
     }
     console.log(socket.id, 'joined', room.ip);
-    if (!room.socketIds.includes(socket.id)) room.socketIds.push(socket.id);
+    if (!room.socketIds.includes(socket.id)) {
+      room.socketIds.push(socket.id);
+    }
     this.io.to(roomId).emit('LIST_ROOM', { users: room?.socketIds });
   }
 
@@ -130,15 +143,34 @@ export class WebSocketService {
   }
 
   static ADD_FILE(socket: Socket, data: any) {
-    socket.to(data.roomId).emit('ADD_FILE', data);
+    if (this.rooms.has(data.roomId)) {
+      let room = this.rooms.get(data.roomId)!;
+      room.files.push({
+        socketId: socket.id,
+        id: data.id,
+        filename: data.filename,
+        fileSize: data.fileSize,
+        fileType: data.fileType,
+        fileExt: data.fileExt,
+        lastModified: data.lastModified,
+      });
+    }
+
+    socket.to(data.roomId).emit(SOCKET_EVENT.ADD_FILE, data);
   }
 
   static REMOVE_FILE(socket: Socket, data: any) {
+    if (this.rooms.has(data.roomId)) {
+      let room = this.rooms.get(data.roomId)!;
+      let index = room.files.findIndex(f => f.id === data.id);
+      room.files.splice(index, 1);
+    }
     socket.to(data.roomId).emit('REMOVE_FILE', data);
   }
 
   static UPLOAD_FILE(socket: Socket, data: any) {
-    socket.to(data.roomId).emit('UPLOAD_FILE', data);
+    console.log('uploadfile');
+    socket.to(data.roomId).emit('RECEIVE_FILE', data);
   }
 
   static ABORT_FILE(socket: Socket, data: any) {
@@ -151,8 +183,9 @@ export class WebSocketService {
 }
 
 export function wsRoutes(fastify: FastifyInstance, opts, done) {
+  // @ts-ignore
   WebSocketService.io = fastify.io;
-
+  // @ts-ignore
   fastify.io.on('connection', socket => {
     socket.join('lobby');
     let { headers } = socket.handshake;
@@ -161,7 +194,7 @@ export function wsRoutes(fastify: FastifyInstance, opts, done) {
 
     socket.onAny((key, data) => {
       if (!WebSocketService[key]) {
-        console.log(key, 'is missing', data);
+        console.error(key, 'is missing', data);
         return;
       }
       WebSocketService[key](socket, data);

@@ -9,6 +9,7 @@ import { SimpleMultiPeer } from '../lib/simple-multi-peer';
 import Chat from './Chat.vue';
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 import 'filepond/dist/filepond.min.css';
+import { SOCKET_EVENT } from '../../common/constants';
 
 interface Message {
   roomId: string;
@@ -103,7 +104,7 @@ onMounted(() => {
       file.setMetadata('socketId', socketId.value);
       file.setMetadata('id', file.id);
     }
-    socket.emit('ADD_FILE', {
+    let incomingFile = {
       roomId: roomId.value,
       id: file.id,
       currentFileSize: 0,
@@ -112,7 +113,8 @@ onMounted(() => {
       fileType: file.fileType,
       fileExt: file.fileExtension,
       lastModified: file.file.lastModified,
-    });
+    };
+    socket.emit(SOCKET_EVENT.ADD_FILE, incomingFile);
     // peerConnection.sendStringify({
     //   payloadType: 'ADD_FILE',
     //   id: file.id,
@@ -158,7 +160,7 @@ let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, 
     completed: 0,
     load,
   };
-  upload(file, metadata);
+  upload(file as File, metadata);
 
   return {
     abort: () => {
@@ -179,8 +181,26 @@ let revert: FilePond.RevertServerConfigFunction = (uniqueFileId, load, error) =>
   });
 };
 
-async function upload(file, metadata) {
-  let arrayBuffer = await file.arrayBuffer() as ArrayBuffer;
+function getFileArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    let reader = new FileReader();
+    reader.addEventListener('loadend', e => resolve(e.target.result as ArrayBuffer))
+    reader.addEventListener('error', reject);
+
+    reader.readAsArrayBuffer(file);
+  })
+}
+
+async function upload(file: File, metadata) {
+  let arrayBuffer = new Uint8Array(await file.arrayBuffer());
+  // let arrayBuffer = new Uint8Array(await getFileArrayBuffer(file));
+  
+  // socket.emit('UPLOAD_FILE', {
+  //   roomId: roomId.value,
+  //   id: metadata.id,
+  //   arrayBuffer,
+  // });
+  // return;
   for (let chunk = 0; chunk < arrayBuffer.byteLength; chunk += CHUNK_SIZE) {
     if (metadata.abort) {
       return;
@@ -205,11 +225,16 @@ function readFile(file) {
   });
 }
 
-function download(file: IncomingFile) {
+async function download(file: IncomingFile) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([file.data], { type: file.fileType }));
+  // a.href = URL.createObjectURL(new Blob([file.data], { type: 'application/octet-stream' }));
   a.download = file.filename;
+  document.body.appendChild(a);
   a.click();
+  await Util.sleep(1000);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
 }
 
 function getFileStyles(file: IncomingFile) {
@@ -223,7 +248,7 @@ function filePercentage(file: IncomingFile) {
 }
 
 function registerSocket() {
-  socket.on('ADD_FILE', (data: any) => {
+  socket.on(SOCKET_EVENT.ADD_FILE, (data: any) => {
     console.log('socket add file', data);
     filesIncoming.value.push(data);
   });
@@ -232,18 +257,19 @@ function registerSocket() {
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) filesIncoming.value.splice(index, 1);
   });
-  socket.on('UPLOAD_FILE', (data: any) => {
+  socket.on('RECEIVE_FILE', (data: any) => {
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) {
       let file = filesIncoming.value[index];
       if (file.data && !data.retry) {
-        file.data = arrayBufferAppend(file.data, data.arrayBuffer);
+        file.data = arrayBufferAppend(file.data, new Uint8Array(data.arrayBuffer));
       } else {
         file.data = data.arrayBuffer;
       }
       file.currentFileSize = file.data.byteLength;
 
       if (file.currentFileSize === file.fileSize) {
+        socket.sendBuffer
         socket.emit('COMPLETED_FILE', {
           roomId: roomId.value,
           id: file.id,
@@ -276,9 +302,9 @@ function arrayBufferAppend(a: ArrayBuffer, b: ArrayBuffer): ArrayBuffer {
 }
 
 function unregisterSocket() {
-  socket.off('ADD_FILE');
+  socket.off(SOCKET_EVENT.ADD_FILE);
   socket.off('REMOVE_FILE');
-  socket.off('UPLOAD_FILE');
+  socket.off('RECEIVE_FILE');
   socket.off('ABORT_FILE');
   socket.off('COMPLETED_FILE');
 }
@@ -315,7 +341,7 @@ function getUserAgent(id: string) {
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
-      <div class="text-2xl mb-2">Files Received<span class="ml-2 p-1 text-sm rounded"
+      <div class="text-2xl mb-2">Files Incoming<span class="ml-2 p-1 text-sm rounded"
           :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady? 'Ready': 'Waiting' }}</span>
       </div>
       <div class="file-container mb-4">
@@ -332,8 +358,8 @@ function getUserAgent(id: string) {
             <div class="ml-auto"></div>
             <progress class="progress w-56" :value="filePercentage(file)" max="100"></progress>
             <div class="mx-2">{{ filePercentage(file) }}%</div>
-            <button class="mx-2 btn btn-success" v-if="file.currentFileSize === file.fileSize">
-              <ArrowDownTrayIcon class="h-4 w-4 text-black" @click="download(file)" />
+            <button class="mx-2 btn btn-success" v-if="file.currentFileSize === file.fileSize" @click="download(file)">
+              <ArrowDownTrayIcon class="h-4 w-4 text-black" />
             </button>
           </li>
         </ul>
@@ -341,7 +367,7 @@ function getUserAgent(id: string) {
       <div class="text-2xl mb-2">Files Send</div>
       <input class="upload-input" type="file" multiple ref="uploadElement" />
       <button class="font-bold py-2 rounded-lg border border-gray-200 bg-sky-500 cursor-pointer"
-        @click="onUpload()">UPLOAD</button>
+        @click="onUpload()">UPLOAD ALL</button>
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col max-h-80" style="min-height: 20rem;">
