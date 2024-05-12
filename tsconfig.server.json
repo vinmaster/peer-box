@@ -5,7 +5,7 @@
     "outDir": "build",
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "target": "esnext",
+    "target": "es2022",
     "module": "commonjs",
     "noImplicitAny": false,
     "allowSyntheticDefaultImports": true,
@@ -13,6 +13,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
+    "allowJs": true,
+    "lib": [
+      "es2022"
+    ],
     "types": [
       "vite/client"
     ],
@@ -22,5 +26,7 @@
       ]
     }
   },
-  "include": ["src/server/**/*.ts"]
+  "include": [
+    "src/server/**/*.ts"
+  ]
 }

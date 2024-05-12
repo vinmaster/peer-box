@@ -1,50 +1,48 @@
 import path from 'path';
-import { fastify as Fastify, FastifyServerOptions } from 'fastify';
+import fastify, { FastifyServerOptions } from 'fastify';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
 import staticFiles from '@fastify/static';
 import env from '@fastify/env';
 import socketioServer from 'fastify-socket.io';
-import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { createContext } from './lib/context';
-import { appRouter } from './routes/trpc';
 import { apiRoutes } from './routes/api';
 import { appErrorHandler, appNotFoundHandler } from './routes/default';
 import { wsRoutes } from './routes/ws';
 
 const envOptions = {
-  dotenv: true,
+  dotenv: {
+    path: path.join(
+      __dirname,
+      '../..',
+      `.env.${process.env.NODE_ENV?.toLowerCase() === 'production' ? 'production' : 'development'}`
+    ),
+  },
   schema: {
     type: 'object',
     required: ['DOMAIN'],
     properties: {
       DOMAIN: { type: 'string' },
-      SENTRY_DSN: { type: 'string' },
     },
   },
 };
 
 export default async (opts?: FastifyServerOptions) => {
-  const fastify = Fastify(opts);
+  const app = fastify(opts);
 
-  await fastify.register(env, envOptions);
-  // fastify.register(helmet, { contentSecurityPolicy: false });
-  fastify.register(cors);
-  fastify.register(staticFiles, { root: path.join(__dirname, '..', 'public') });
-  fastify.register(socketioServer, {
+  await app.register(env, envOptions);
+  // app.register(helmet, { contentSecurityPolicy: false });
+  app.register(cors);
+  app.register(staticFiles, { root: path.join(__dirname, 'public') });
+  app.register(socketioServer, {
     cors: {
-      origin: process.env.DOMAIN.split(','),
+      origin: (process.env.DOMAIN ?? '').split(','),
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     },
   });
-  fastify.register(fastifyTRPCPlugin, {
-    prefix: '/trpc',
-    trpcOptions: { router: appRouter, createContext },
-  });
-  fastify.register(apiRoutes, { prefix: 'api' });
-  fastify.register(wsRoutes);
-  fastify.setErrorHandler(appErrorHandler);
-  fastify.setNotFoundHandler(appNotFoundHandler);
+  app.register(apiRoutes, { prefix: 'api' });
+  app.register(wsRoutes);
+  app.setErrorHandler(appErrorHandler);
+  app.setNotFoundHandler(appNotFoundHandler);
 
-  return fastify;
+  return app;
 };

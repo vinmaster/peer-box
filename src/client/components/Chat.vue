@@ -31,7 +31,7 @@ watch(event, ({ key, data }: any) => {
     msgs.value.push(data);
     nextTick(() => {
       clipboard.value = new ClipboardJS('.copy-btn');
-      const container = document.querySelector('.messages');
+      const container = document.querySelector('.messages')!;
       container.scrollTop = container.scrollHeight;
     });
     // setTimeout(() => {
@@ -91,12 +91,12 @@ function clearMsgs() {
     </div>
   </div>
   <div class="message-input bg-gray-500 p-4 flex flex-row text-gray-700">
-    <textarea class="flex-1 p-2 rounded" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
+    <textarea class="flex-1 p-2 rounded text-white" rows="1" v-model.trim="chatText" @keyup.enter="sendMsg"></textarea>
     <button
-      class="btn btn-success flex items-center w-18 gap-2 justify-center ml-2 font-bold"
+      class="btn btn-success flex items-center w-18 gap-2 justify-center ml-2 font-bold text-white"
       @click="sendMsg">
       Send
-      <PaperAirplaneIcon class="h-4 w-4 text-black" />
+      <PaperAirplaneIcon class="h-4 w-4 text-white" />
     </button>
   </div>
 </template>

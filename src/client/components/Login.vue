@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { client } from '../lib/trpc';
 
 const username = ref('');
 const password = ref('');
 
 async function onSubmit() {
   console.log('submit');
-  let res = await client.mutation('user.login', { username: username.value, password: password.value });
-  console.log('res', res);
+  // let res = await client.mutation('user.login', { username: username.value, password: password.value });
+  // console.log('res', res);
 }
 </script>
 

@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import NodeModulesPolyfills from '@esbuild-plugins/node-modules-polyfill';
-import GlobalsPolyfills from '@esbuild-plugins/node-globals-polyfill';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -10,23 +9,17 @@ export default defineConfig({
       'simple-peer': 'simple-peer/simplepeer.min.js',
     },
   },
-  plugins: [vue()],
+  plugins: [vue(), nodePolyfills()],
   root: './src/client',
   server: { host: true, port: 3000 },
   build: {
-    outDir: '../../build/public',
+    // outDir: '../../build/public',
+    outDir: '../server/public',
     emptyOutDir: false,
   },
   clearScreen: false,
   optimizeDeps: {
     esbuildOptions: {
-      plugins: [
-        NodeModulesPolyfills(),
-        GlobalsPolyfills({
-          process: true,
-          buffer: true,
-        }),
-      ],
       define: {
         global: 'globalThis',
       },

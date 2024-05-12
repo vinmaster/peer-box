@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, Ref, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { client } from '../lib/trpc';
 import { useWs } from '../lib/useWs';
 import { Util } from '../../common/util';
 import * as FilePond from 'filepond';
@@ -9,25 +8,23 @@ import { SimpleMultiPeer } from '../lib/simple-multi-peer';
 import Chat from './Chat.vue';
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 import 'filepond/dist/filepond.min.css';
-import { SOCKET_EVENT } from '../../common/constants';
-
-interface Message {
-  roomId: string;
-  type: string;
-  sender: string;
-  text: string;
-  timestamp: number;
-}
 
 interface IncomingFile {
   id: string;
   currentFileSize: number;
-  data?: ArrayBuffer;
+  data?: Uint8Array;
   filename: string;
   fileSize: number;
   fileType: string;
   fileExt: string;
   lastModified: number;
+}
+
+interface CurrentUpload {
+  arrayBuffer: Uint8Array;
+  chunkIndex: number;
+  roomId: string;
+  id: string;
 }
 
 // 0.5 MiB
@@ -40,6 +37,7 @@ let filesIncoming: Ref<IncomingFile[]> = ref([]);
 let socketId = ref(socket.id);
 let users: Ref<string[]> = ref([]);
 let uploadElement = ref(null);
+let currentUpload: CurrentUpload | null = null;
 let pond: FilePond.FilePond;
 let peerConnection: SimpleMultiPeer;
 let uploaderMetadata: Record<string, { completed: number, load: Function; }> = {};
@@ -50,7 +48,7 @@ onMounted(() => {
   if (!id) {
     throw new Error('No room id found');
   }
-  roomId.value = id as string;
+  roomId.value = id;
   registerSocket();
   socket.emit('JOIN_ROOM', { roomId: id });
   // filesIncoming.value.push({
@@ -89,9 +87,10 @@ onMounted(() => {
   //     },
   //   }
   // });
-  peerConnection = {} as any;
 
-  pond = FilePond.create(uploadElement.value, {
+  // peerConnection = {} as any;
+
+  pond = FilePond.create(uploadElement.value!, {
     instantUpload: false,
     server: {
       process,
@@ -114,7 +113,7 @@ onMounted(() => {
       fileExt: file.fileExtension,
       lastModified: file.file.lastModified,
     };
-    socket.emit(SOCKET_EVENT.ADD_FILE, incomingFile);
+    socket.emit('ADD_FILE', incomingFile);
     // peerConnection.sendStringify({
     //   payloadType: 'ADD_FILE',
     //   id: file.id,
@@ -181,53 +180,49 @@ let revert: FilePond.RevertServerConfigFunction = (uniqueFileId, load, error) =>
   });
 };
 
-function getFileArrayBuffer(file: File): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    let reader = new FileReader();
-    reader.addEventListener('loadend', e => resolve(e.target.result as ArrayBuffer))
-    reader.addEventListener('error', reject);
-
-    reader.readAsArrayBuffer(file);
-  })
-}
-
-async function upload(file: File, metadata) {
+async function upload(file: File, metadata: any) {
   let arrayBuffer = new Uint8Array(await file.arrayBuffer());
   // let arrayBuffer = new Uint8Array(await getFileArrayBuffer(file));
-  
+
+  currentUpload = {
+    arrayBuffer,
+    chunkIndex: 0,
+    roomId: roomId.value,
+    id: metadata.id,
+  };
+
   // socket.emit('UPLOAD_FILE', {
   //   roomId: roomId.value,
   //   id: metadata.id,
   //   arrayBuffer,
   // });
   // return;
-  for (let chunk = 0; chunk < arrayBuffer.byteLength; chunk += CHUNK_SIZE) {
-    if (metadata.abort) {
-      return;
-    }
-    socket.emit('UPLOAD_FILE', {
-      roomId: roomId.value,
-      id: metadata.id,
-      arrayBuffer: arrayBuffer.slice(chunk, chunk + CHUNK_SIZE),
-    });
-    await Util.sleep(1);
-  }
-}
 
-function readFile(file) {
-  return new Promise((resolve, reject) => {
-    var fr = new FileReader();
-    fr.onload = () => {
-      resolve(fr.result);
-    };
-    fr.onerror = reject;
-    fr.readAsText(file.blob);
+  // for (let chunk = 0; chunk < arrayBuffer.byteLength; chunk += CHUNK_SIZE) {
+  //   if (metadata.abort) {
+  //     return;
+  //   }
+  //   socket.emit('UPLOAD_FILE', {
+  //     roomId: roomId.value,
+  //     id: metadata.id,
+  //     arrayBuffer: arrayBuffer.slice(chunk, chunk + CHUNK_SIZE),
+  //   });
+  //   await Util.sleep(1);
+  // }
+  let start = currentUpload.chunkIndex * CHUNK_SIZE;
+  let end = Math.min((currentUpload.chunkIndex + 1) * CHUNK_SIZE, currentUpload.arrayBuffer.byteLength);
+  socket.emit('UPLOAD_FILE', {
+    roomId: currentUpload.roomId,
+    id: currentUpload.id,
+    chunkIndex: currentUpload.chunkIndex,
+    arrayBuffer: currentUpload.arrayBuffer.slice(start, end),
   });
+  currentUpload.chunkIndex += 1;
 }
 
 async function download(file: IncomingFile) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([file.data], { type: file.fileType }));
+  a.href = URL.createObjectURL(new Blob([file.data as any], { type: file.fileType }));
   // a.href = URL.createObjectURL(new Blob([file.data], { type: 'application/octet-stream' }));
   a.download = file.filename;
   document.body.appendChild(a);
@@ -243,12 +238,8 @@ function getFileStyles(file: IncomingFile) {
   };
 }
 
-function filePercentage(file: IncomingFile) {
-  return Math.ceil(file.currentFileSize / file.fileSize * 100);
-}
-
 function registerSocket() {
-  socket.on(SOCKET_EVENT.ADD_FILE, (data: any) => {
+  socket.on('ADD_FILE', (data: any) => {
     console.log('socket add file', data);
     filesIncoming.value.push(data);
   });
@@ -257,25 +248,38 @@ function registerSocket() {
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) filesIncoming.value.splice(index, 1);
   });
-  socket.on('RECEIVE_FILE', (data: any) => {
+  socket.on('RECEIVE_FILE', (data: CurrentUpload) => {
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) {
       let file = filesIncoming.value[index];
-      if (file.data && !data.retry) {
+      if (file.data) {
         file.data = arrayBufferAppend(file.data, new Uint8Array(data.arrayBuffer));
       } else {
-        file.data = data.arrayBuffer;
+        file.data = new Uint8Array(data.arrayBuffer);
       }
-      file.currentFileSize = file.data.byteLength;
+      file.currentFileSize = file.data!.byteLength;
 
       if (file.currentFileSize === file.fileSize) {
-        socket.sendBuffer
         socket.emit('COMPLETED_FILE', {
           roomId: roomId.value,
           id: file.id,
         });
+      } else {
+        socket.emit('RECEIVED_FILE', data);
       }
     }
+  });
+  socket.on('RECEIVED_FILE', (data: any) => {
+    if (!currentUpload) return;
+    let start = currentUpload.chunkIndex * CHUNK_SIZE;
+    let end = Math.min((currentUpload.chunkIndex + 1) * CHUNK_SIZE, currentUpload.arrayBuffer.byteLength);
+    socket.emit('UPLOAD_FILE', {
+      roomId: currentUpload.roomId,
+      id: currentUpload.id,
+      chunkIndex: currentUpload.chunkIndex,
+      arrayBuffer: currentUpload.arrayBuffer.slice(start, end),
+    });
+    currentUpload.chunkIndex += 1;
   });
   socket.on('ABORT_FILE', (data: any) => {
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
@@ -292,30 +296,30 @@ function registerSocket() {
     metadata.load(data.id);
     // metadata.progress(false, metadata.completed, users.value.length - 1);
   });
+  socket.on('ROOM_INFO', (data: any) => {
+    let room = data.room;
+    console.log('ROOM_INFO', room);
+    if (room.files) {
+      for (let f of room.files) {
+        // filesIncoming.value.push(f);
+      }
+    }
+  });
 }
 
-function arrayBufferAppend(a: ArrayBuffer, b: ArrayBuffer): ArrayBuffer {
+function arrayBufferAppend(a: Uint8Array, b: Uint8Array): Uint8Array {
   let arrayBuffer = new Uint8Array(a.byteLength + b.byteLength);
-  arrayBuffer.set(a as any, 0);
-  arrayBuffer.set(b as any, a.byteLength);
+  arrayBuffer.set(a);
+  arrayBuffer.set(b, a.byteLength);
   return arrayBuffer;
 }
 
 function unregisterSocket() {
-  socket.off(SOCKET_EVENT.ADD_FILE);
+  socket.off('ADD_FILE');
   socket.off('REMOVE_FILE');
   socket.off('RECEIVE_FILE');
   socket.off('ABORT_FILE');
   socket.off('COMPLETED_FILE');
-}
-
-function arrayBufferToBuffer(ab) {
-  let buffer = Buffer.alloc(ab.byteLength);
-  let copy = new Uint8Array(ab);
-  for (let i = 0; i < buffer.length; ++i) {
-    buffer[i] = copy[i];
-  }
-  return buffer;
 }
 
 function onUpload() {
@@ -324,9 +328,45 @@ function onUpload() {
   // peerConnection.sendStringify('test data');
 }
 
+function filePercentage(file: IncomingFile) {
+  return Math.ceil(file.currentFileSize / file.fileSize * 100);
+}
+
+// Unused code
+function readFile(file: any) {
+  return new Promise((resolve, reject) => {
+    var fr = new FileReader();
+    fr.onload = () => {
+      resolve(fr.result);
+    };
+    fr.onerror = reject;
+    fr.readAsText(file.blob);
+  });
+}
+
 function getUserAgent(id: string) {
   return navigator.userAgent;
 }
+
+function arrayBufferToBuffer(ab: any) {
+  let buffer = Buffer.alloc(ab.byteLength);
+  let copy = new Uint8Array(ab);
+  for (let i = 0; i < buffer.length; ++i) {
+    buffer[i] = copy[i];
+  }
+  return buffer;
+}
+
+function getFileArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    let reader = new FileReader();
+    reader.addEventListener('loadend', (e: any) => resolve(e.target.result as ArrayBuffer));
+    reader.addEventListener('error', reject);
+
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 </script>
 
 <template>
@@ -342,7 +382,7 @@ function getUserAgent(id: string) {
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">
       <div class="text-2xl mb-2">Files Incoming<span class="ml-2 p-1 text-sm rounded"
-          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady? 'Ready': 'Waiting' }}</span>
+          :class="[isReady ? 'bg-green-500' : 'bg-red-500']">Status: {{ isReady ? 'Ready' : 'Waiting' }}</span>
       </div>
       <div class="file-container mb-4">
         <ul class="grid gap-2">

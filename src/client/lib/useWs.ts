@@ -1,5 +1,6 @@
 import { reactive, ref } from 'vue';
-import { io } from 'socket.io-client';
+import { Socket, io } from 'socket.io-client';
+import { ClientToServerEvents, ServerToClientEvents } from '../../common/constants';
 
 export interface Event {
   key: string;
@@ -7,10 +8,11 @@ export interface Event {
 }
 
 let protocol = location.protocol === 'http:' ? 'ws' : 'wss';
-let socket = io(
+let socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
   (import.meta as any).env.DEV
     ? `${protocol}://localhost:8000`
-    : `${protocol}://${window.location.host}`
+    : `${protocol}://${window.location.host}`,
+  { reconnection: false }
 );
 let isSetup = false;
 let isConnected = ref(false);

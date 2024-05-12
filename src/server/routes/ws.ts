@@ -2,7 +2,7 @@ import util from 'node:util';
 import { FastifyInstance } from 'fastify';
 import { Util } from '../../common/util';
 import { Server, Socket } from 'socket.io';
-import { SOCKET_EVENT } from '../../common/constants';
+import { ClientToServerEvents, ServerToClientEvents } from '../../common/constants';
 
 export interface FileData {
   socketId: string;
@@ -23,7 +23,7 @@ export interface RoomData {
 
 export class WebSocketService {
   static rooms: Map<string, RoomData> = new Map();
-  static io: Server;
+  static io: Server<ClientToServerEvents, ServerToClientEvents>;
 
   static newId() {
     let id = '';
@@ -40,7 +40,7 @@ export class WebSocketService {
   }
 
   static async getSocketsByIp(ip?: string) {
-    let sockets = [];
+    let sockets = [] as any[];
     if (ip) {
       for (let socket of await this.io.fetchSockets()) {
         if ((socket as any).ip === ip) sockets.push(socket);
@@ -53,7 +53,7 @@ export class WebSocketService {
     if (!roomId) roomId = this.newId();
     let room = { roomId, socketIds: [], files: [] };
     this.rooms.set(roomId, room);
-    this.io.to('lobby').emit('CREATE_ROOM', { roomId });
+    this.io.to('lobby').emit('ROOM_CREATED', { roomId });
     return room;
   }
 
@@ -83,7 +83,12 @@ export class WebSocketService {
     socket.emit('PONG', { timestamp: +new Date() });
   }
 
-  static JOIN_ROOM(socket: Socket, data: any) {
+  static CREATE_ROOM(socket: Socket<ServerToClientEvents>, callback: (roomId: string) => void) {
+    let room = this.createRoom();
+    callback(room.roomId);
+  }
+
+  static JOIN_ROOM(socket: Socket<ServerToClientEvents>, data: any) {
     let { roomId } = data;
     socket.leave('lobby');
     socket.join(roomId);
@@ -100,21 +105,22 @@ export class WebSocketService {
       room.socketIds.push(socket.id);
     }
     this.io.to(roomId).emit('LIST_ROOM', { users: room?.socketIds });
+    socket.emit('ROOM_INFO', { room });
   }
 
-  static LEAVE_ROOM(socket: Socket, data: any) {
+  static LEAVE_ROOM(socket: Socket<ServerToClientEvents>, data: any) {
     let { roomId } = data;
     socket.leave(roomId);
     this.leaveRoom(roomId, socket.id);
   }
 
-  static CHAT_MSG(socket: Socket, data: any) {
+  static CHAT_MSG(socket: Socket<ServerToClientEvents>, data: any) {
     this.io.to(data.roomId).emit('CHAT_MSG', data);
   }
 
   // WebRTC
-  static PEERS_JOIN(socket: Socket, { roomId }: { roomId: string }) {
-    let socketIds = this.rooms.get(roomId).socketIds;
+  static PEERS_JOIN(socket: Socket<ServerToClientEvents>, { roomId }: { roomId: string }) {
+    let socketIds = this.rooms.get(roomId)!.socketIds;
 
     if (socketIds.length === 1) {
       console.log('PEERS_JOIN', socket.id, roomId, 'only one');
@@ -123,17 +129,19 @@ export class WebSocketService {
       let lastSocketId = socketIds.at(-1);
       for (let socketId of socketIds) {
         if (socketId === lastSocketId) {
-          this.io.sockets.sockets.get(socketId).emit('PEERS_START', { socketIds, initiator: true });
+          this.io.sockets.sockets
+            .get(socketId)!
+            .emit('PEERS_START', { socketIds, initiator: true });
         } else {
           this.io.sockets.sockets
-            .get(socketId)
+            .get(socketId)!
             .emit('PEERS_START', { socketIds, initiator: false });
         }
       }
     }
   }
 
-  static PEERS_SIGNAL(socket: Socket, data: any) {
+  static PEERS_SIGNAL(socket: Socket<ServerToClientEvents>, data: any) {
     let { roomId, socketId, signal } = data;
     console.log('PEERS_SIGNAL', socket.id, socketId);
     socket.broadcast.to(roomId).emit('PEERS_SIGNAL', {
@@ -142,7 +150,7 @@ export class WebSocketService {
     });
   }
 
-  static ADD_FILE(socket: Socket, data: any) {
+  static ADD_FILE(socket: Socket<ServerToClientEvents>, data: any) {
     if (this.rooms.has(data.roomId)) {
       let room = this.rooms.get(data.roomId)!;
       room.files.push({
@@ -156,10 +164,10 @@ export class WebSocketService {
       });
     }
 
-    socket.to(data.roomId).emit(SOCKET_EVENT.ADD_FILE, data);
+    socket.to(data.roomId).emit('ADD_FILE', data);
   }
 
-  static REMOVE_FILE(socket: Socket, data: any) {
+  static REMOVE_FILE(socket: Socket<ServerToClientEvents>, data: any) {
     if (this.rooms.has(data.roomId)) {
       let room = this.rooms.get(data.roomId)!;
       let index = room.files.findIndex(f => f.id === data.id);
@@ -168,12 +176,15 @@ export class WebSocketService {
     socket.to(data.roomId).emit('REMOVE_FILE', data);
   }
 
-  static UPLOAD_FILE(socket: Socket, data: any) {
-    console.log('uploadfile');
+  static UPLOAD_FILE(socket: Socket<ServerToClientEvents>, data: any) {
     socket.to(data.roomId).emit('RECEIVE_FILE', data);
   }
 
-  static ABORT_FILE(socket: Socket, data: any) {
+  static RECEIVED_FILE(socket: Socket<ServerToClientEvents>, data: any) {
+    socket.to(data.roomId).emit('RECEIVED_FILE', data);
+  }
+
+  static ABORT_FILE(socket: Socket<ServerToClientEvents>, data: any) {
     socket.to(data.roomId).emit('ABORT_FILE', data);
   }
 
