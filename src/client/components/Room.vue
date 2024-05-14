@@ -8,6 +8,7 @@ import { SimpleMultiPeer } from '../lib/simple-multi-peer';
 import Chat from './Chat.vue';
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline';
 import 'filepond/dist/filepond.min.css';
+import { renderSVG } from 'uqr';
 
 interface IncomingFile {
   id: string;
@@ -35,12 +36,14 @@ let isReady = ref(false);
 let { isConnected, event, socket } = useWs();
 let filesIncoming: Ref<IncomingFile[]> = ref([]);
 let socketId = ref(socket.id);
-let users: Ref<string[]> = ref([]);
+let socketIds: Ref<string[]> = ref([]);
+let names: Ref<Record<string, string>> = ref({});
 let uploadElement = ref(null);
 let currentUpload: CurrentUpload | null = null;
 let pond: FilePond.FilePond;
 let peerConnection: SimpleMultiPeer;
 let uploaderMetadata: Record<string, { completed: number, load: Function; }> = {};
+let qrcode = renderSVG(window.location.href);
 
 onMounted(() => {
   // socket.close();
@@ -134,7 +137,6 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  console.log('unmount');
   // peerConnection.close();
   unregisterSocket();
   socket.emit('LEAVE_ROOM', { roomId: roomId.value });
@@ -147,14 +149,15 @@ watch(isConnected, () => {
 watch(event, ({ key, data }: any) => {
   if (key === 'LIST_ROOM') {
     isReady.value = true;
-    users.value = data.users;
+    socketIds.value = data.users;
+    names.value = data.names;
   } else if (key === 'LEAVE_ROOM') {
     // peerConnection.onPeerClose(data.socketId);
   }
 });
 
 let process: FilePond.ProcessServerConfigFunction = (fieldName, file, metadata, load, error, progress, abort, transfer, options) => {
-  console.log('process', file, metadata);
+  // console.log('process', file, metadata);
   uploaderMetadata[metadata.id] = {
     completed: 0,
     load,
@@ -240,11 +243,11 @@ function getFileStyles(file: IncomingFile) {
 
 function registerSocket() {
   socket.on('ADD_FILE', (data: any) => {
-    console.log('socket add file', data);
+    // console.log('socket add file', data);
     filesIncoming.value.push(data);
   });
   socket.on('REMOVE_FILE', (data: any) => {
-    console.log('socket remove file', data);
+    // console.log('socket remove file', data);
     let index = filesIncoming.value.findIndex(f => f.id === data.id);
     if (index !== -1) filesIncoming.value.splice(index, 1);
   });
@@ -289,7 +292,6 @@ function registerSocket() {
     filesIncoming.value[index].currentFileSize = 0;
   });
   socket.on('COMPLETED_FILE', (data: any) => {
-    console.log('completed');
     if (!uploaderMetadata[data.id]) return;
     let metadata = uploaderMetadata[data.id];
     metadata.completed += 1;
@@ -298,7 +300,7 @@ function registerSocket() {
   });
   socket.on('ROOM_INFO', (data: any) => {
     let room = data.room;
-    console.log('ROOM_INFO', room);
+    // console.log('ROOM_INFO', room);
     if (room.files) {
       for (let f of room.files) {
         // filesIncoming.value.push(f);
@@ -318,8 +320,10 @@ function unregisterSocket() {
   socket.off('ADD_FILE');
   socket.off('REMOVE_FILE');
   socket.off('RECEIVE_FILE');
+  socket.off('RECEIVED_FILE');
   socket.off('ABORT_FILE');
   socket.off('COMPLETED_FILE');
+  socket.off('ROOM_INFO');
 }
 
 function onUpload() {
@@ -372,12 +376,28 @@ function getFileArrayBuffer(file: File): Promise<ArrayBuffer> {
 <template>
   <div class="font-sans antialiased bg-gray-800 pt-12 p-5 text-white">
     <div class="flex flex-col justify-center sm:w-96 sm:m-auto mx-5 space-y-5">
-      <div class="text-4xl text-center">Room {{ roomId }}</div>
+      <div class="text-4xl text-center flex items-center justify-between">
+        Room {{ roomId }}
+        <button class="btn" onclick="qr_modal.showModal()">Show QR
+          Code</button>
+      </div>
       <div class="flex flex-col rounded-lg border border-gray-200">
         <div class="text-xl text-center p-2 bg-sky-500 rounded-t-lg">In this room</div>
-        <div class="border-t border-gray-200 w-full p-2" v-for="id in users" :key="id">{{ id }}<span
+        <div class="border-t border-gray-200 w-full p-2" v-for="id in socketIds" :key="id">{{ names[id] }}<span
             v-if="id == socketId" class="text-sky-400"> (You)</span></div>
       </div>
+      <dialog id="qr_modal" class="modal">
+        <div class="modal-box">
+          <form method="dialog">
+            <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+          </form>
+          <h3 class="font-bold text-lg">QR Code (Scan to join)</h3>
+          <p class="py-4" v-html="qrcode"></p>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+          <button>close</button>
+        </form>
+      </dialog>
     </div>
 
     <div class="pt-5 max-w-screen-md mx-auto w-full flex flex-col">

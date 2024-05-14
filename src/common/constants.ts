@@ -5,7 +5,7 @@ export interface ServerToClientEvents {
   ROOM_CREATED: ({ roomId }: { roomId: string }) => void;
   DESTROY_ROOM: ({ roomId }: { roomId: string }) => void;
   LEAVE_ROOM: ({ socketIds, socketId }: { socketIds: string[]; socketId: string }) => void;
-  LIST_ROOM: ({ users }: { users: string[] }) => void;
+  LIST_ROOM: ({ users, names }: { users: string[]; names: Record<string, string> }) => void;
   ROOM_INFO: ({ room }: { room: any }) => void;
   CHAT_MSG: (data: any) => void;
   PEERS_START: ({ socketIds, initiator }: { socketIds: string[]; initiator: boolean }) => void;

@@ -46,6 +46,7 @@
     "superjson": "^2.2.1",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5",
+    "uqr": "^0.1.2",
     "vite": "^5.2.10",
     "vite-plugin-node-polyfills": "^0.21.0",
     "vue": "^3.4.26",

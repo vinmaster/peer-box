@@ -8,6 +8,7 @@ interface Message {
   roomId: string;
   type: string;
   sender: string;
+  senderName: string;
   text: string;
   timestamp: number;
 }
@@ -79,7 +80,7 @@ function clearMsgs() {
           <ClipboardIcon class="h-4 w-4 text-white" />
         </button>
         <div class="message-name absolute px-2 py-1 text-xs rounded left-0 bottom-0"
-          :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ msg.sender }}
+          :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{ msg.senderName }}
         </div>
         <div class="message-name absolute px-2 py-1 text-xs rounded right-0 bottom-0"
           :class="[msg.sender === socketId ? 'bg-sky-600' : 'bg-gray-600']">{{

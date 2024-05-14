@@ -1,3 +1,4 @@
+import { NameGenerator } from './../lib/name-generator';
 import util from 'node:util';
 import { FastifyInstance } from 'fastify';
 import { Util } from '../../common/util';
@@ -17,6 +18,7 @@ export interface FileData {
 export interface RoomData {
   roomId: string;
   socketIds: string[];
+  names: Record<string, string>;
   files: FileData[];
   ip?: string;
 }
@@ -51,7 +53,7 @@ export class WebSocketService {
 
   static createRoom(roomId?: string): RoomData {
     if (!roomId) roomId = this.newId();
-    let room = { roomId, socketIds: [], files: [] };
+    let room = { roomId, socketIds: [], files: [], names: {} };
     this.rooms.set(roomId, room);
     this.io.to('lobby').emit('ROOM_CREATED', { roomId });
     return room;
@@ -100,11 +102,13 @@ export class WebSocketService {
       let socketIp = (socket as any).ip;
       if (socketIp) room.ip = socketIp;
     }
-    console.log(socket.id, 'joined', room.ip);
+    if (!socket.data.name) socket.data.name = NameGenerator.getName();
+    console.log(socket.id, 'joined', room.ip, socket.data.name);
     if (!room.socketIds.includes(socket.id)) {
       room.socketIds.push(socket.id);
+      room.names[socket.id] = socket.data.name;
     }
-    this.io.to(roomId).emit('LIST_ROOM', { users: room?.socketIds });
+    this.io.to(roomId).emit('LIST_ROOM', { users: room?.socketIds, names: room.names });
     socket.emit('ROOM_INFO', { room });
   }
 
@@ -115,6 +119,9 @@ export class WebSocketService {
   }
 
   static CHAT_MSG(socket: Socket<ServerToClientEvents>, data: any) {
+    let room = this.rooms.get(data.roomId);
+    if (!room) return;
+    data.senderName = room.names[data.sender];
     this.io.to(data.roomId).emit('CHAT_MSG', data);
   }
 
