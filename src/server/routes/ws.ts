@@ -3,25 +3,9 @@ import util from 'node:util';
 import { FastifyInstance } from 'fastify';
 import { Util } from '../../common/util';
 import { Server, Socket } from 'socket.io';
-import { ClientToServerEvents, ServerToClientEvents } from '../../common/constants';
+import { ClientToServerEvents, ServerToClientEvents, RoomData, FileData } from '../../common/types';
 
-export interface FileData {
-  socketId: string;
-  id: string;
-  filename: string;
-  fileSize: number;
-  fileType: string;
-  fileExt: string;
-  lastModified: string;
-}
 
-export interface RoomData {
-  roomId: string;
-  socketIds: string[];
-  names: Record<string, string>;
-  files: FileData[];
-  ip?: string;
-}
 
 export class WebSocketService {
   static rooms: Map<string, RoomData> = new Map();
@@ -125,37 +109,7 @@ export class WebSocketService {
     this.io.to(data.roomId).emit('CHAT_MSG', data);
   }
 
-  // WebRTC
-  static PEERS_JOIN(socket: Socket<ServerToClientEvents>, { roomId }: { roomId: string }) {
-    let socketIds = this.rooms.get(roomId)!.socketIds;
 
-    if (socketIds.length === 1) {
-      console.log('PEERS_JOIN', socket.id, roomId, 'only one');
-    } else {
-      console.log('PEERS_JOIN', socket.id, roomId, socketIds.length);
-      let lastSocketId = socketIds.at(-1);
-      for (let socketId of socketIds) {
-        if (socketId === lastSocketId) {
-          this.io.sockets.sockets
-            .get(socketId)!
-            .emit('PEERS_START', { socketIds, initiator: true });
-        } else {
-          this.io.sockets.sockets
-            .get(socketId)!
-            .emit('PEERS_START', { socketIds, initiator: false });
-        }
-      }
-    }
-  }
-
-  static PEERS_SIGNAL(socket: Socket<ServerToClientEvents>, data: any) {
-    let { roomId, socketId, signal } = data;
-    console.log('PEERS_SIGNAL', socket.id, socketId);
-    socket.broadcast.to(roomId).emit('PEERS_SIGNAL', {
-      socketId,
-      signal,
-    });
-  }
 
   static ADD_FILE(socket: Socket<ServerToClientEvents>, data: any) {
     if (this.rooms.has(data.roomId)) {

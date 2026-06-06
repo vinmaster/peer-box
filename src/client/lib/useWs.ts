@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { Socket, io } from 'socket.io-client';
-import { ClientToServerEvents, ServerToClientEvents } from '../../common/constants';
+import { ClientToServerEvents, ServerToClientEvents } from '../../common/types';
 
 export interface Event {
   key: string;
