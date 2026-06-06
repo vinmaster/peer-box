@@ -8,7 +8,7 @@
     "build-client": "vite build --config vite.config.client.ts --ssrManifest",
     "build-server": "echo",
     "clean": "rm -rf build",
-    "start": "cross-env NODE_ENV=production tsx --tsconfig ./tsconfig.server.json ./src/server/index.ts",
+    "start": "cross-env NODE_ENV=production npx tsx --tsconfig ./tsconfig.server.json ./src/server/index.ts",
     "dev": "concurrently --raw \"npm:dev-*\"",
     "dev-client": "vite --config vite.config.client.ts",
     "dev-server": "cross-env NODE_ENV=development tsx watch --clear-screen=false --tsconfig ./tsconfig.server.json ./src/server/index.ts",
