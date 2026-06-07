@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShareBox — Instant File & Text Sharing</title>
+  <meta name="description"
+    content="ShareBox is a fast, private, multi-user file sharing app — like AirDrop for any device, any browser. No install required." />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/room.css" />
+  <style>
+    /* Landing-only extras */
+    .scan-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      background: var(--bg-glass);
+      border: 1px dashed var(--border-glass);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: var(--font-family);
+    }
+
+    .scan-btn:hover {
+      background: var(--bg-glass-hover);
+      border-color: var(--border-accent);
+      color: var(--text-primary);
+    }
+
+    .name-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .name-row .input {
+      flex: 1;
+    }
+
+    .avatar-preview {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      margin-bottom: 16px;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-orbs"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <main class="landing-wrapper">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-logo" aria-hidden="true">📦</div>
+      <h1 class="hero-title">ShareBox</h1>
+      <p class="hero-subtitle">
+        Instantly share files and text across devices.<br />
+        No account. No install. Private and secure.
+      </p>
+      <div class="hero-features">
+        <div class="feature-pill"><span>⚡</span> WebRTC P2P</div>
+        <div class="feature-pill"><span>🔒</span> Private Rooms</div>
+        <div class="feature-pill"><span>📁</span> File Transfer</div>
+        <div class="feature-pill"><span></span> Chat</div>
+        <div class="feature-pill"><span>📱</span> QR Join</div>
+      </div>
+    </section>
+
+    <!-- Action Card -->
+    <section class="action-card" aria-label="Create or join a room">
+      <!-- Tab Switcher -->
+      <div class="action-tabs" role="tablist" aria-label="Room actions">
+        <button class="action-tab active" id="tab-create" role="tab" aria-selected="true" aria-controls="panel-create"
+          onclick="switchTab('create')">
+          ✨ Create Room
+        </button>
+        <button class="action-tab" id="tab-join" role="tab" aria-selected="false" aria-controls="panel-join"
+          onclick="switchTab('join')">
+          🔗 Join Room
+        </button>
+      </div>
+
+      <div class="action-panel">
+        <!-- Create Panel -->
+        <div class="action-panel-section active" id="panel-create" role="tabpanel">
+          <h2 class="panel-title">Start a new room</h2>
+          <p class="panel-desc">Get a 4-digit code to share with others. Up to 10 people can join.</p>
+
+          <div class="input-group">
+            <label class="input-label" for="create-name">Your display name</label>
+            <div class="name-row">
+              <div class="avatar-preview" id="create-avatar" aria-hidden="true"></div>
+              <input class="input" type="text" id="create-name" placeholder="Enter your name…" maxlength="24"
+                autocomplete="off" />
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-lg w-full" id="btn-create" onclick="handleCreate()">
+            <span>✨</span> Create Room
+          </button>
+        </div>
+
+        <!-- Join Panel -->
+        <div class="action-panel-section" id="panel-join" role="tabpanel">
+          <h2 class="panel-title">Join a room</h2>
+          <p class="panel-desc">Enter the 4-digit code from the host, or scan their QR code.</p>
+
+          <div class="input-group">
+            <label class="input-label" for="join-name">Your display name</label>
+            <div class="name-row">
+              <div class="avatar-preview" id="join-avatar" aria-hidden="true"></div>
+              <input class="input" type="text" id="join-name" placeholder="Enter your name…" maxlength="24"
+                autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Room code</label>
+            <div class="code-digit-group" id="code-digit-group">
+              <input class="code-digit" id="digit-0" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
+                placeholder="·" aria-label="Digit 1" />
+              <input class="code-digit" id="digit-1" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
+                placeholder="·" aria-label="Digit 2" />
+              <input class="code-digit" id="digit-2" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
+                placeholder="·" aria-label="Digit 3" />
+              <input class="code-digit" id="digit-3" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1"
+                placeholder="·" aria-label="Digit 4" />
+            </div>
+          </div>
+
+          <div id="join-error" class="error-msg" role="alert">Room not found. Check the code and try again.</div>
+
+          <button class="btn btn-primary btn-lg w-full" id="btn-join" onclick="handleJoin()"
+            style="margin-bottom: 12px;">
+            <span>🔗</span> Join Room
+          </button>
+
+          <div class="divider">or</div>
+
+          <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <button class="scan-btn" id="btn-scan" onclick="startQRScan()" aria-label="Scan QR code to join">
+              <span>📷</span> Scan QR Code
+            </button>
+            <button class="hold-pair-btn" id="btn-hold-pair" aria-label="Hold to Pair">
+              <span id="hold-pair-icon">🖐️</span> <span id="hold-pair-text">Hold to Pair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="landing-footer">
+      <p class="footer-text">
+        <strong>ShareBox</strong> · Data transfers are end-to-end via WebRTC · Your files never touch our server
+      </p>
+    </footer>
+  </main>
+
+  <!-- QR Scanner Modal -->
+  <div class="modal-overlay" id="scan-modal" role="dialog" aria-modal="true" aria-label="QR Scanner">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📷 Scan QR Code</span>
+        <button class="modal-close" onclick="closeScanModal()" aria-label="Close">✕</button>
+      </div>
+      <div style="text-align:center;">
+        <video id="scan-video" style="width:100%;border-radius:12px;background:#000;min-height:240px;" playsinline
+          autoplay></video>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-top:12px;">Point your camera at a ShareBox QR code
+        </p>
+        <p id="scan-status" style="font-size:0.82rem;color:var(--text-accent);margin-top:8px;min-height:1.2em;"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/landing.js"></script>
+</body>
+
+</html>

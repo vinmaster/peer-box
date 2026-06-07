@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShareBox Room</title>
+  <meta name="description" content="ShareBox room — share files and text in real time." />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="/css/room.css" />
+</head>
+
+<body>
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Connecting Overlay -->
+  <div class="connecting-overlay" id="connecting-overlay">
+    <div class="hero-logo" style="margin-bottom:0;animation:logoFloat 2s ease-in-out infinite;">📦</div>
+    <div class="spinner" aria-label="Connecting…"></div>
+    <p class="connecting-text" id="connecting-text">Connecting to ShareBox…</p>
+  </div>
+
+  <!-- Room Layout -->
+  <div class="room-layout" id="room-layout" style="display:none;">
+
+    <!-- Header -->
+    <header class="room-header">
+      <div class="room-header-left">
+        <a href="/" class="header-logo" title="ShareBox home" aria-label="Go home">📦</a>
+        <div class="room-code-display">
+          <span class="room-code-label">Room</span>
+          <button class="room-code-value" id="room-code-btn" onclick="openQRModal()" title="Click to show QR code"
+            aria-label="Show QR code for this room">----</button>
+        </div>
+        <span class="badge badge-green" id="peer-count-badge">
+          <span>👥</span>
+          <span id="peer-count">1</span>
+        </span>
+      </div>
+
+      <div class="room-header-right">
+        <!-- Transport Toggle -->
+        <div class="transport-toggle" role="group" aria-label="Transfer mode">
+          <span class="transport-label-left active" id="label-webrtc">WebRTC</span>
+          <div class="toggle-track" id="transport-toggle" onclick="toggleTransport()" role="switch" aria-checked="false"
+            aria-label="Switch to WebSocket mode" tabindex="0">
+            <div class="toggle-thumb"></div>
+          </div>
+          <span class="transport-label-right" id="label-ws">WebSocket</span>
+        </div>
+
+        <button class="btn btn-ghost btn-sm" onclick="leaveRoom()" id="btn-leave" aria-label="Leave room">
+          Leave
+        </button>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="room-sidebar" aria-label="Room members">
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Members</div>
+        <div class="peer-list" id="peer-list">
+          <!-- Peers added dynamically -->
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="flex:1;border-bottom:none;">
+        <div class="sidebar-section-title">Room QR</div>
+        <div style="text-align:center;padding:8px 0;">
+          <img id="sidebar-qr" src="" alt="Room QR code"
+            style="width:140px;height:140px;border-radius:var(--radius-md);cursor:pointer;" onclick="openQRModal()" />
+        </div>
+        <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;">Scan to join</p>
+
+        <div style="margin-top: 24px;">
+          <button class="hold-pair-btn" id="btn-host-hold-pair" aria-label="Hold to Pair">
+            <span id="host-hold-pair-icon">🖐️</span> <span id="host-hold-pair-text">Hold to Pair</span>
+          </button>
+          <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;">Hold down with another person to instantly connect</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="room-main">
+      <div class="room-content-split">
+        <!-- Chat Panel -->
+        <div class="content-panel chat-section">
+          <div class="panel-header">
+            <span class="panel-header-icon" aria-hidden="true">💬</span> Chat
+          </div>
+          <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Chat messages">
+            <div class="chat-system-msg">🔒 Messages are private to this room</div>
+          </div>
+          <div class="chat-input-bar">
+            <textarea class="chat-input" id="chat-input"
+              placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"
+              aria-label="Chat message input"></textarea>
+            <button class="btn btn-primary btn-icon" id="btn-send-chat" onclick="sendChat()" aria-label="Send message"
+              title="Send">
+              ➤
+            </button>
+          </div>
+        </div>
+
+        <!-- Files Panel -->
+        <div class="content-panel files-section">
+          <div class="panel-header">
+            <span class="panel-header-icon" aria-hidden="true">📁</span> Files
+          </div>
+          <div class="file-panel">
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" role="button"
+              tabindex="0" aria-label="Drop files here or click to select">
+              <div class="drop-icon" aria-hidden="true">📂</div>
+              <div class="drop-title">Drop files here</div>
+              <div class="drop-subtitle">or click to browse</div>
+              <div class="drop-limit">Any file type · Up to 500MB per file</div>
+            </div>
+            <input type="file" id="file-input" class="file-input-hidden" multiple aria-label="Select files to share" />
+
+            <!-- Staged Queue -->
+            <div class="staged-queue" id="staged-queue" style="display:none;">
+              <div class="staged-header">
+                <span class="staged-title">Ready to send</span>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-ghost btn-sm" id="btn-clear-queue" onclick="clearQueue()" aria-label="Clear queue">✕ Clear</button>
+                  <button class="btn btn-primary btn-sm" id="btn-send-files" onclick="sendStagedFiles()" aria-label="Send files">
+                    <span>📤</span> Send Files
+                  </button>
+                </div>
+              </div>
+              <div class="staged-list" id="staged-list"></div>
+            </div>
+
+            <!-- Transfer List -->
+            <div class="transfers-section">
+              <div class="transfers-title">Transfers</div>
+              <div class="transfer-list" id="transfer-list">
+                <div class="empty-state" id="transfer-empty">
+                  <div class="empty-icon">📭</div>
+                  <div class="empty-text">No transfers yet. Drop a file to share!</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- QR Modal -->
+  <div class="modal-overlay" id="qr-modal" role="dialog" aria-modal="true" aria-label="Room QR Code">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">📱 Share Room</span>
+        <button class="modal-close" onclick="closeQRModal()" aria-label="Close">✕</button>
+      </div>
+      <div class="qr-content">
+        <div class="qr-image-wrapper">
+          <img id="qr-modal-img" src="" alt="Room QR code" />
+        </div>
+        <div class="qr-code-big" id="qr-modal-code"></div>
+        <div class="qr-url" id="qr-modal-url"></div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button class="btn btn-secondary btn-sm" onclick="copyRoomLink()" id="btn-copy-link">
+            <span>🔗</span> Copy Link
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="copyRoomCode()" id="btn-copy-code">
+            <span>📋</span> Copy Code
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/webrtc.js"></script>
+  <script src="/js/wsTransport.js"></script>
+  <script src="/js/room.js"></script>
+</body>
+
+</html>
