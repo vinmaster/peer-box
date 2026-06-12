@@ -1213,7 +1213,7 @@
     border-top: 1px solid var(--border-subtle);
     background: var(--bg-base);
     min-height: 0;
-    display: flex;
+    display: flex !important;
     flex-direction: column;
   }
 
@@ -1223,10 +1223,8 @@
     height: 100%;
   }
 
-  .chat-section {
-    border-right: none;
-    border-left: none;
-    flex: none;
+  .room-content-split .chat-section {
+    display: none !important;
   }
 
   .files-section {

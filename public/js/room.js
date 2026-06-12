@@ -23,6 +23,15 @@ let useWebSocket = false;
 let msgCount = 0;
 let fileCount = 0;
 
+function getOrCreatePeerId() {
+  let peerId = localStorage.getItem('sb_peer_id');
+  if (!peerId) {
+    peerId = 'p_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    localStorage.setItem('sb_peer_id', peerId);
+  }
+  return peerId;
+}
+
 // ─── Socket Connection ────────────────────────────────────────────────────────
 const socket = io({ transports: ['websocket', 'polling'] });
 
@@ -30,7 +39,12 @@ socket.on('connect', () => {
   myId = socket.id;
   setConnectingText('Joining room…');
 
-  socket.emit('join-room', { code: roomCode, name: myName }, (res) => {
+  // Clear any existing peers and UI on connect/reconnect
+  peers.clear();
+  const peerList = document.getElementById('peer-list');
+  if (peerList) peerList.innerHTML = '';
+
+  socket.emit('join-room', { code: roomCode, name: myName, peerId: getOrCreatePeerId() }, (res) => {
     if (res?.error) {
       setConnectingText('Error: ' + res.error);
       return;
@@ -557,7 +571,7 @@ window.addEventListener('resize', () => {
 
 // ─── Responsive Layout ────────────────────────────────────────────────────────
 function handleResponsiveLayout() {
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
   const chatSection = document.querySelector('.chat-section');
   const roomContentSplit = document.querySelector('.room-content-split');
   const roomSidebar = document.getElementById('room-sidebar');
@@ -589,8 +603,9 @@ function handleResponsiveLayout() {
   }
 }
 
-// Run initially
+// Run initially and on window load
 handleResponsiveLayout();
+window.addEventListener('load', handleResponsiveLayout);
 
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebar  = closeMobileSidebar;

@@ -124,7 +124,7 @@ io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id}`);
 
   // Join or create a room
-  socket.on('join-room', ({ code, name }, ack) => {
+  socket.on('join-room', ({ code, name, peerId }, ack) => {
     if (!/^\d{4}$/.test(code)) return ack?.({ error: 'Invalid code' });
 
     // Auto-create room if it doesn't exist (allows deep-linking via QR)
@@ -136,7 +136,20 @@ io.on('connection', (socket) => {
     peerName = name || `User ${Math.floor(Math.random() * 900) + 100}`;
     currentRoom = code;
 
-    const peerInfo = { id: socket.id, name: peerName, joinedAt: Date.now() };
+    // Check for existing peer with the same peerId to prevent duplicates on reconnect/refresh
+    if (peerId) {
+      for (const [sid, p] of room.peers.entries()) {
+        if (p.peerId === peerId) {
+          room.peers.delete(sid);
+          io.to(code).emit('peer-left', { id: sid });
+          const oldSocket = io.sockets.sockets.get(sid);
+          if (oldSocket) oldSocket.leave(code);
+          console.log(`[Room] ${code}: Removed stale socket ${sid} for re-joining peer ${peerName}`);
+        }
+      }
+    }
+
+    const peerInfo = { id: socket.id, name: peerName, peerId, joinedAt: Date.now() };
     room.peers.set(socket.id, peerInfo);
     socket.join(code);
 
