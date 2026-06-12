@@ -52,66 +52,14 @@
         <button class="btn btn-ghost btn-sm" onclick="leaveRoom()" id="btn-leave" aria-label="Leave room">
           Leave
         </button>
-
-        <!-- Mobile sidebar toggle -->
-        <button class="btn btn-ghost btn-icon sidebar-toggle-btn" id="btn-sidebar-toggle"
-          onclick="toggleMobileSidebar()" aria-label="Toggle members sidebar" title="Members">
-          👥
-        </button>
       </div>
     </header>
 
-    <!-- Sidebar backdrop (mobile) -->
-    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()" aria-hidden="true"></div>
 
-    <!-- Sidebar -->
-    <aside class="room-sidebar" id="room-sidebar" aria-label="Room members">
-      <div class="sidebar-section">
-        <div class="sidebar-section-title">Members</div>
-        <div class="peer-list" id="peer-list">
-          <!-- Peers added dynamically -->
-        </div>
-      </div>
-
-      <div class="sidebar-section" style="flex:1;border-bottom:none;">
-        <div class="sidebar-section-title">Room QR</div>
-        <div style="text-align:center;padding:8px 0;">
-          <img id="sidebar-qr" src="" alt="Room QR code"
-            style="width:140px;height:140px;border-radius:var(--radius-md);cursor:pointer;" onclick="openQRModal()" />
-        </div>
-        <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;">Scan to join</p>
-
-        <div style="margin-top: 24px;">
-          <button class="hold-pair-btn" id="btn-host-hold-pair" aria-label="Hold to Pair">
-            <span id="host-hold-pair-icon">🖐️</span> <span id="host-hold-pair-text">Hold to Pair</span>
-          </button>
-          <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;">Hold down with another person to instantly connect</p>
-        </div>
-      </div>
-    </aside>
 
     <!-- Main -->
     <main class="room-main">
       <div class="room-content-split">
-        <!-- Chat Panel -->
-        <div class="content-panel chat-section">
-          <div class="panel-header">
-            <span class="panel-header-icon" aria-hidden="true">💬</span> Chat
-          </div>
-          <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Chat messages">
-            <div class="chat-system-msg">🔒 Messages are private to this room</div>
-          </div>
-          <div class="chat-input-bar">
-            <textarea class="chat-input" id="chat-input"
-              placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"
-              aria-label="Chat message input"></textarea>
-            <button class="btn btn-primary btn-icon" id="btn-send-chat" onclick="sendChat()" aria-label="Send message"
-              title="Send">
-              ➤
-            </button>
-          </div>
-        </div>
-
         <!-- Files Panel -->
         <div class="content-panel files-section">
           <div class="panel-header">
@@ -154,9 +102,50 @@
             </div>
           </div>
         </div>
+
+        <!-- Chat Panel -->
+        <div class="content-panel chat-section">
+          <div class="panel-header">
+            <span class="panel-header-icon" aria-hidden="true">💬</span> Chat
+          </div>
+
+          <!-- Members List Area -->
+          <div class="chat-members-list-wrapper" id="chat-members-wrapper">
+            <div class="peer-list" id="peer-list">
+              <!-- Peers added dynamically -->
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chat-messages" aria-live="polite" aria-label="Chat messages">
+            <div class="chat-system-msg">🔒 Messages are private to this room</div>
+          </div>
+          <div class="chat-input-bar">
+            <textarea class="chat-input" id="chat-input"
+              placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"
+              aria-label="Chat message input"></textarea>
+            <button class="btn btn-primary btn-icon" id="btn-send-chat" onclick="sendChat()" aria-label="Send message"
+              title="Send">
+              ➤
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   </div>
+
+  <!-- Mobile sidebar FAB -->
+  <button class="sidebar-fab" id="btn-sidebar-fab" onclick="toggleMobileSidebar()"
+    aria-label="Open members sidebar" title="Members">
+    👥
+    <span class="sidebar-fab-badge" id="sidebar-fab-badge">1</span>
+  </button>
+
+  <!-- Sidebar backdrop (mobile) -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()" aria-hidden="true"></div>
+
+  <!-- Sidebar -->
+  <aside class="room-sidebar" id="room-sidebar" aria-label="Room members">
+  </aside>
 
   <!-- QR Modal -->
   <div class="modal-overlay" id="qr-modal" role="dialog" aria-modal="true" aria-label="Room QR Code">
@@ -171,13 +160,23 @@
         </div>
         <div class="qr-code-big" id="qr-modal-code"></div>
         <div class="qr-url" id="qr-modal-url"></div>
-        <div style="display:flex;gap:10px;justify-content:center;">
+        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px;">
           <button class="btn btn-secondary btn-sm" onclick="copyRoomLink()" id="btn-copy-link">
             <span>🔗</span> Copy Link
           </button>
           <button class="btn btn-secondary btn-sm" onclick="copyRoomCode()" id="btn-copy-code">
             <span>📋</span> Copy Code
           </button>
+        </div>
+
+        <div style="border-top:1px solid var(--border-subtle);padding-top:20px;margin-top:20px;">
+          <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;text-align:center;">Instant Pairing</div>
+          <div style="display:flex;flex-direction:column;align-items:center;">
+            <button class="hold-pair-btn" id="btn-host-hold-pair" aria-label="Hold to Pair" style="width:100%;max-width:240px;">
+              <span id="host-hold-pair-icon">🖐️</span> <span id="host-hold-pair-text">Hold to Pair</span>
+            </button>
+            <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;max-width:280px;">Hold down with another person to instantly connect</p>
+          </div>
         </div>
       </div>
     </div>

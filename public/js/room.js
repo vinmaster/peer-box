@@ -436,6 +436,8 @@ function showRoom() {
 function updateRoomUI() {
   const total = peers.size + 1; // +1 for self
   document.getElementById('peer-count').textContent = total;
+  const fab = document.getElementById('sidebar-fab-badge');
+  if (fab) fab.textContent = total;
 }
 
 function setConnectingText(text) {
@@ -492,7 +494,8 @@ function updatePeerStatus(id, status) {
 // ─── QR Code ──────────────────────────────────────────────────────────────────
 function loadQR() {
   const qrUrl = `/api/qr/${roomCode}`;
-  document.getElementById('sidebar-qr').src = qrUrl;
+  const sidebarQr = document.getElementById('sidebar-qr');
+  if (sidebarQr) sidebarQr.src = qrUrl;
   document.getElementById('qr-modal-img').src = qrUrl;
   document.getElementById('qr-modal-code').textContent = roomCode;
   const fullUrl = `${location.protocol}//${location.host}/room/${roomCode}`;
@@ -519,12 +522,14 @@ function copyRoomCode() {
 function toggleMobileSidebar() {
   const sidebar  = document.getElementById('room-sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
+  const fab      = document.getElementById('btn-sidebar-fab');
   const isOpen   = sidebar.classList.contains('open');
   if (isOpen) {
     closeMobileSidebar();
   } else {
     sidebar.classList.add('open');
     backdrop.classList.add('visible');
+    fab?.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
 }
@@ -532,8 +537,10 @@ function toggleMobileSidebar() {
 function closeMobileSidebar() {
   const sidebar  = document.getElementById('room-sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
+  const fab      = document.getElementById('btn-sidebar-fab');
   sidebar.classList.remove('open');
   backdrop.classList.remove('visible');
+  fab?.classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -545,7 +552,45 @@ document.addEventListener('keydown', (e) => {
 // Auto-close when resizing to desktop width
 window.addEventListener('resize', () => {
   if (window.innerWidth > 768) closeMobileSidebar();
+  handleResponsiveLayout();
 });
+
+// ─── Responsive Layout ────────────────────────────────────────────────────────
+function handleResponsiveLayout() {
+  const isMobile = window.innerWidth <= 768;
+  const chatSection = document.querySelector('.chat-section');
+  const roomContentSplit = document.querySelector('.room-content-split');
+  const roomSidebar = document.getElementById('room-sidebar');
+  const chatMessages = document.getElementById('chat-messages');
+
+  if (!chatSection || !roomContentSplit || !roomSidebar) return;
+
+  // Save scroll position
+  const scrollTop = chatMessages ? chatMessages.scrollTop : 0;
+  const wasAtBottom = chatMessages ? (chatMessages.scrollHeight - chatMessages.clientHeight - scrollTop < 20) : false;
+
+  if (isMobile) {
+    if (chatSection.parentNode !== roomSidebar) {
+      roomSidebar.appendChild(chatSection);
+    }
+  } else {
+    if (chatSection.parentNode !== roomContentSplit) {
+      roomContentSplit.appendChild(chatSection);
+    }
+  }
+
+  // Restore scroll position
+  if (chatMessages) {
+    if (wasAtBottom) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    } else {
+      chatMessages.scrollTop = scrollTop;
+    }
+  }
+}
+
+// Run initially
+handleResponsiveLayout();
 
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebar  = closeMobileSidebar;
@@ -568,6 +613,7 @@ let hostHoldTimer = null;
 
 socket.on('pairing-matched', ({ joinerId }) => {
   showToast('Matched!', `Someone joined via Hold to Pair.`, 'success');
+  closeQRModal();
   // the 'peer-joined' event will handle adding them to the UI
 });
 
