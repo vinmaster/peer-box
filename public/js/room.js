@@ -515,6 +515,41 @@ function copyRoomCode() {
   });
 }
 
+// ─── Mobile Sidebar Toggle ────────────────────────────────────────────────────
+function toggleMobileSidebar() {
+  const sidebar  = document.getElementById('room-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const isOpen   = sidebar.classList.contains('open');
+  if (isOpen) {
+    closeMobileSidebar();
+  } else {
+    sidebar.classList.add('open');
+    backdrop.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeMobileSidebar() {
+  const sidebar  = document.getElementById('room-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  sidebar.classList.remove('open');
+  backdrop.classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+// Close on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMobileSidebar();
+});
+
+// Auto-close when resizing to desktop width
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeMobileSidebar();
+});
+
+window.toggleMobileSidebar = toggleMobileSidebar;
+window.closeMobileSidebar  = closeMobileSidebar;
+
 // ─── Leave ────────────────────────────────────────────────────────────────────
 function leaveRoom() {
   transport?.destroy();

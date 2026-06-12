@@ -52,11 +52,20 @@
         <button class="btn btn-ghost btn-sm" onclick="leaveRoom()" id="btn-leave" aria-label="Leave room">
           Leave
         </button>
+
+        <!-- Mobile sidebar toggle -->
+        <button class="btn btn-ghost btn-icon sidebar-toggle-btn" id="btn-sidebar-toggle"
+          onclick="toggleMobileSidebar()" aria-label="Toggle members sidebar" title="Members">
+          👥
+        </button>
       </div>
     </header>
 
+    <!-- Sidebar backdrop (mobile) -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()" aria-hidden="true"></div>
+
     <!-- Sidebar -->
-    <aside class="room-sidebar" aria-label="Room members">
+    <aside class="room-sidebar" id="room-sidebar" aria-label="Room members">
       <div class="sidebar-section">
         <div class="sidebar-section-title">Members</div>
         <div class="peer-list" id="peer-list">
