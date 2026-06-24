@@ -77,7 +77,7 @@ function hideJoinError() {
 
 // ─── Create Room ──────────────────────────────────────────────────────────────
 async function handleCreate() {
-  const name = createNameEl.value.trim() || 'Anonymous';
+  const name = createNameEl.value.trim() || generateName();
   localStorage.setItem('sb_name', name);
 
   const btn = document.getElementById('btn-create');
@@ -106,7 +106,7 @@ async function handleJoin() {
     return;
   }
 
-  const name = joinNameEl.value.trim() || 'Anonymous';
+  const name = joinNameEl.value.trim() || generateName();
   localStorage.setItem('sb_name', name);
 
   const btn = document.getElementById('btn-join');
@@ -160,7 +160,7 @@ async function startQRScan() {
             const raw = codes[0].rawValue;
             handleScannedQR(raw);
           }
-        } catch {}
+        } catch { }
       }, 500);
     } else {
       status.textContent = 'QR scanning not supported in this browser. Use Chrome/Edge.';
@@ -216,7 +216,7 @@ let holdTimer = null;
 
 socket.on('pairing-success', ({ roomCode }) => {
   stopHoldPairing();
-  const name = joinNameEl.value.trim() || 'Anonymous';
+  const name = joinNameEl.value.trim() || generateName();
   localStorage.setItem('sb_name', name);
   localStorage.setItem('sb_pending_name', name);
   showToast('Matched!', `Joining room ${roomCode}...`, 'success');
@@ -228,7 +228,7 @@ socket.on('pairing-success', ({ roomCode }) => {
 function startHoldPairing(e) {
   if (e) {
     // Only prevent default on touch to avoid mouse selection issues, but we want button press
-    if (e.type === 'touchstart') e.preventDefault(); 
+    if (e.type === 'touchstart') e.preventDefault();
   }
   if (holdTimer) return;
 
@@ -244,7 +244,7 @@ function startHoldPairing(e) {
 function stopHoldPairing() {
   clearTimeout(holdTimer);
   holdTimer = null;
-  
+
   if (btnHoldPair.classList.contains('holding')) {
     btnHoldPair.classList.remove('holding');
     document.getElementById('hold-pair-text').textContent = 'Hold to Pair';

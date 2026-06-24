@@ -2,6 +2,29 @@
  * ui.js — Shared UI utilities: toasts, modals, avatars, peer colors
  */
 
+// ─── Fun Name Generator ─────────────────────────────────────────────────────
+const FUN_ADJECTIVES = [
+  'Cosmic', 'Turbo', 'Sneaky', 'Fuzzy', 'Electric', 'Mighty', 'Chill',
+  'Groovy', 'Zippy', 'Bouncy', 'Stealthy', 'Blazing', 'Sparkly', 'Jolly',
+  'Mystic', 'Swift', 'Witty', 'Lucky', 'Daring', 'Breezy', 'Spicy',
+  'Nifty', 'Cozy', 'Giggly', 'Bold', 'Crispy', 'Frosty', 'Dizzy',
+  'Snappy', 'Peppy', 'Zesty', 'Goofy', 'Sassy', 'Wacky', 'Plucky',
+];
+
+const FUN_NOUNS = [
+  'Panda', 'Otter', 'Fox', 'Falcon', 'Koala', 'Penguin', 'Raccoon',
+  'Llama', 'Gecko', 'Capybara', 'Quokka', 'Axolotl', 'Narwhal', 'Sloth',
+  'Parrot', 'Wombat', 'Octopus', 'Hedgehog', 'Dolphin', 'Flamingo',
+  'Chameleon', 'Meerkat', 'Bison', 'Toucan', 'Badger', 'Lemur',
+  'Puffin', 'Chinchilla', 'Corgi', 'Mantis', 'Starfish', 'Jaguar',
+];
+
+function generateName() {
+  const adj = FUN_ADJECTIVES[Math.floor(Math.random() * FUN_ADJECTIVES.length)];
+  const noun = FUN_NOUNS[Math.floor(Math.random() * FUN_NOUNS.length)];
+  return `${adj} ${noun}`;
+}
+
 // ─── Peer Color Palette ──────────────────────────────────────────────────────
 const PEER_COLORS = [
   { bg: '#7c3aed', light: '#a78bfa' },

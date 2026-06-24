@@ -13,7 +13,7 @@ if (!roomCode || !/^\d{4}$/.test(roomCode)) {
 
 const myName = localStorage.getItem('sb_pending_name') ||
   localStorage.getItem('sb_name') ||
-  'Anonymous';
+  generateName();
 localStorage.removeItem('sb_pending_name');
 
 let myId = null;
@@ -534,10 +534,10 @@ function copyRoomCode() {
 
 // ─── Mobile Sidebar Toggle ────────────────────────────────────────────────────
 function toggleMobileSidebar() {
-  const sidebar  = document.getElementById('room-sidebar');
+  const sidebar = document.getElementById('room-sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
-  const fab      = document.getElementById('btn-sidebar-fab');
-  const isOpen   = sidebar.classList.contains('open');
+  const fab = document.getElementById('btn-sidebar-fab');
+  const isOpen = sidebar.classList.contains('open');
   if (isOpen) {
     closeMobileSidebar();
   } else {
@@ -549,9 +549,9 @@ function toggleMobileSidebar() {
 }
 
 function closeMobileSidebar() {
-  const sidebar  = document.getElementById('room-sidebar');
+  const sidebar = document.getElementById('room-sidebar');
   const backdrop = document.getElementById('sidebar-backdrop');
-  const fab      = document.getElementById('btn-sidebar-fab');
+  const fab = document.getElementById('btn-sidebar-fab');
   sidebar.classList.remove('open');
   backdrop.classList.remove('visible');
   fab?.classList.remove('open');
@@ -608,7 +608,7 @@ handleResponsiveLayout();
 window.addEventListener('load', handleResponsiveLayout);
 
 window.toggleMobileSidebar = toggleMobileSidebar;
-window.closeMobileSidebar  = closeMobileSidebar;
+window.closeMobileSidebar = closeMobileSidebar;
 
 // ─── Leave ────────────────────────────────────────────────────────────────────
 function leaveRoom() {
@@ -634,7 +634,7 @@ socket.on('pairing-matched', ({ joinerId }) => {
 
 function startHostHoldPairing(e) {
   if (e) {
-    if (e.type === 'touchstart') e.preventDefault(); 
+    if (e.type === 'touchstart') e.preventDefault();
   }
   if (hostHoldTimer) return;
 
@@ -649,7 +649,7 @@ function startHostHoldPairing(e) {
 function stopHostHoldPairing() {
   clearTimeout(hostHoldTimer);
   hostHoldTimer = null;
-  
+
   if (btnHostHoldPair.classList.contains('holding')) {
     btnHostHoldPair.classList.remove('holding');
     document.getElementById('host-hold-pair-text').textContent = 'Hold to Pair';
