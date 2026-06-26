@@ -69,7 +69,7 @@ socket.on('connect', () => {
     (res.peers || []).forEach(p => {
       addPeerToUI(p.id, p.name);
       peers.set(p.id, p);
-      transport.addPeer(p.id, p.name, true); // we are initiator for existing peers
+      transport.addPeer(p.id, p.name, myId > p.id); // deterministic initiator
     });
 
     showRoom();
@@ -82,7 +82,7 @@ socket.on('peer-joined', (peerInfo) => {
   if (peerInfo.id === myId) return;
   peers.set(peerInfo.id, peerInfo);
   addPeerToUI(peerInfo.id, peerInfo.name);
-  transport.addPeer(peerInfo.id, peerInfo.name, false); // they initiate offer to us
+  transport.addPeer(peerInfo.id, peerInfo.name, myId > peerInfo.id); // deterministic initiator
   showToast(`${peerInfo.name} joined`, 'Connected to room', 'success', 3000);
   updateRoomUI();
   appendSystemMsg(`${peerInfo.name} joined the room`);
@@ -150,7 +150,8 @@ function toggleTransport(sync = true) {
   // Re-init transport and re-connect peers
   initTransport();
   peers.forEach((p) => {
-    transport.addPeer(p.id, p.name, true);
+    updatePeerStatus(p.id, 'connecting');
+    transport.addPeer(p.id, p.name, myId > p.id);
   });
 
   if (sync) {
@@ -485,8 +486,8 @@ function addPeerToUI(id, name, isSelf = false) {
       <div class="peer-avatar-ring"></div>
     </div>
     <div class="peer-info">
-      <div class="peer-name">${escapeHtml(name)}${isSelf ? ' <span style="font-size:0.7rem;color:var(--text-muted);">(you)</span>' : ''}</div>
-      <div class="peer-status" id="peer-status-${id}">${isSelf ? 'Host' : 'Connecting…'}</div>
+      <div class="peer-name">${escapeHtml(name)}${isSelf ? ' <span style="background:var(--accent-primary, #7c3aed); color:#fff; font-size:0.7rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-left:6px;">You</span>' : ''}</div>
+      <div class="peer-status" id="peer-status-${id}">${isSelf ? '🟢 Online' : '🟡 Connecting…'}</div>
     </div>
   `;
   list.appendChild(div);
@@ -511,7 +512,9 @@ function updatePeerStatus(id, status) {
   }
   const statusEl = document.getElementById(`peer-status-${id}`);
   if (statusEl) {
-    statusEl.textContent = status === 'connected' ? '🟢 Connected' : '🔴 Disconnected';
+    if (status === 'connected') statusEl.textContent = '🟢 Connected';
+    else if (status === 'connecting') statusEl.textContent = '🟡 Connecting…';
+    else statusEl.textContent = '🔴 Disconnected';
   }
 }
 

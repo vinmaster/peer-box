@@ -145,6 +145,17 @@
             </div>
           </div>
 
+          <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+            <button class="scan-btn" id="btn-scan" onclick="startQRScan()" aria-label="Scan QR code to join">
+              <span>📷</span> Scan QR Code
+            </button>
+            <button class="hold-pair-btn" id="btn-hold-pair" aria-label="Hold to Pair">
+              <span id="hold-pair-icon">🖐️</span> <span id="hold-pair-text">Hold to Pair</span>
+            </button>
+          </div>
+
+          <div class="divider">or</div>
+
           <div class="input-group">
             <label class="input-label">Room code</label>
             <div class="code-digit-group" id="code-digit-group">
@@ -165,17 +176,6 @@
             style="margin-bottom: 12px;">
             <span>🔗</span> Join Room
           </button>
-
-          <div class="divider">or</div>
-
-          <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-            <button class="scan-btn" id="btn-scan" onclick="startQRScan()" aria-label="Scan QR code to join">
-              <span>📷</span> Scan QR Code
-            </button>
-            <button class="hold-pair-btn" id="btn-hold-pair" aria-label="Hold to Pair">
-              <span id="hold-pair-icon">🖐️</span> <span id="hold-pair-text">Hold to Pair</span>
-            </button>
-          </div>
         </div>
       </div>
     </section>
