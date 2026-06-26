@@ -49,7 +49,7 @@ function generateRoomCode() {
 }
 
 function createRoom(code) {
-  const room = { peers: new Map(), createdAt: Date.now(), timer: null };
+  const room = { peers: new Map(), createdAt: Date.now(), timer: null, wsMode: false };
   rooms.set(code, room);
   return room;
 }
@@ -161,7 +161,7 @@ io.on('connection', (socket) => {
 
     console.log(`[Room] ${code}: ${peerName} joined (${room.peers.size} peers)`);
 
-    ack?.({ ok: true, peers: existingPeers, you: peerInfo });
+    ack?.({ ok: true, peers: existingPeers, you: peerInfo, wsMode: room.wsMode });
   });
 
   // WebRTC signaling relay
@@ -185,6 +185,8 @@ io.on('connection', (socket) => {
   // Transport toggle synchronization
   socket.on('set-transport', (wsMode) => {
     if (!currentRoom) return;
+    const room = rooms.get(currentRoom);
+    if (room) room.wsMode = wsMode;
     socket.to(currentRoom).emit('set-transport', wsMode);
   });
 

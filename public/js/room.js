@@ -50,6 +50,18 @@ socket.on('connect', () => {
       return;
     }
 
+    // Adopt the room's current transport mode
+    if (res.wsMode !== undefined) {
+      useWebSocket = res.wsMode;
+      const track = document.getElementById('transport-toggle');
+      const labelWebRTC = document.getElementById('label-webrtc');
+      const labelWS = document.getElementById('label-ws');
+      track.classList.toggle('active', useWebSocket);
+      track.setAttribute('aria-checked', String(useWebSocket));
+      labelWebRTC.classList.toggle('active', !useWebSocket);
+      labelWS.classList.toggle('active', useWebSocket);
+    }
+
     // Initialize transport
     initTransport();
 
