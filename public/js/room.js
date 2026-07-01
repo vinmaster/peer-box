@@ -170,6 +170,22 @@ function toggleTransport(sync = true) {
 function handleMessage(from, fromName, type, payload) {
   if (type === 'chat') {
     appendChatMsg(from, fromName, payload.text, Date.now(), false);
+  } else if (type === 'file-staged') {
+    const item = addTransferItem(payload.transferId, payload, 'waiting');
+    activeTransfers.set(payload.transferId, item);
+  } else if (type === 'file-unstaged') {
+    const item = activeTransfers.get(payload.transferId);
+    if (item) {
+      item.remove();
+      activeTransfers.delete(payload.transferId);
+    } else {
+      document.getElementById('transfer-' + payload.transferId)?.remove();
+    }
+    const list = document.getElementById('transfer-list');
+    const empty = document.getElementById('transfer-empty');
+    if (list && list.children.length === 1 && list.firstElementChild.id === 'transfer-empty') {
+      if (empty) empty.style.display = 'flex';
+    }
   }
 }
 
@@ -181,6 +197,10 @@ function handleFileProgress(transferId, progress, meta) {
   if (!item) {
     item = addTransferItem(transferId, meta, 'receiving');
     activeTransfers.set(transferId, item);
+  }
+  const status = item.querySelector('.transfer-status');
+  if (status && status.textContent.includes('Waiting')) {
+    status.textContent = '📥 Receiving';
   }
   const fill = item.querySelector('.progress-fill');
   if (fill) fill.style.width = `${Math.round(progress * 100)}%`;
@@ -294,22 +314,26 @@ document.getElementById('chat-input').addEventListener('input', function () {
 
 
 // ─── File Sending ─────────────────────────────────────────────────────────────
-async function sendFiles(files) {
-  for (const file of files) {
+async function sendFiles(stagedItems) {
+  for (const itemObj of stagedItems) {
     try {
-      const transferId = `send-${Date.now()}-${file.name}`;
+      // In case we fall back to older files array without transferId
+      const file = itemObj.file || itemObj;
+      const transferId = itemObj.transferId || crypto.randomUUID();
+      
       const item = addTransferItem(transferId, {
         name: file.name,
         size: file.size,
         mimeType: file.type,
       }, 'sending');
+      activeTransfers.set(transferId, item);
 
       await transport.sendFile(file, (progress) => {
         const fill = item.querySelector('.progress-fill');
         if (fill) fill.style.width = `${Math.round(progress * 100)}%`;
         const pct = item.querySelector('.transfer-pct');
         if (pct) pct.textContent = `${Math.round(progress * 100)}%`;
-      });
+      }, transferId);
 
       const fill = item.querySelector('.progress-fill');
       if (fill) {
@@ -333,16 +357,26 @@ function addTransferItem(transferId, meta, direction) {
   if (empty) empty.style.display = 'none';
 
   const list = document.getElementById('transfer-list');
-  const div = document.createElement('div');
-  div.className = 'transfer-item';
-  div.id = `transfer-${transferId}`;
+  let div = document.getElementById(`transfer-${transferId}`);
+  if (!div) {
+    div = document.createElement('div');
+    div.className = 'transfer-item';
+    div.id = `transfer-${transferId}`;
+    list.prepend(div);
+  }
+  
+  let statusText = '';
+  if (direction === 'sending') statusText = '📤 Sending';
+  else if (direction === 'receiving') statusText = '📥 Receiving';
+  else if (direction === 'waiting') statusText = '⏳ Waiting...';
+
   div.innerHTML = `
     <div class="transfer-icon" aria-hidden="true">${getFileIcon(meta.name)}</div>
     <div class="transfer-info">
       <div class="transfer-name" title="${escapeHtml(meta.name)}">${escapeHtml(meta.name)}</div>
       <div class="transfer-meta">
         <span>${formatBytes(meta.size)}</span>
-        <span class="transfer-status">${direction === 'sending' ? '📤 Sending' : '📥 Receiving'}</span>
+        <span class="transfer-status">${statusText}</span>
         <span class="transfer-pct">0%</span>
       </div>
       <div class="progress-bar" style="margin-top:6px;">
@@ -358,21 +392,35 @@ function addTransferItem(transferId, meta, direction) {
 }
 
 // ─── File Staging Queue ──────────────────────────────────────────────────────────────
-const stagedFiles = []; // Array of File objects
+const stagedFiles = []; // Array of { file, transferId }
 
 function stageFiles(files) {
   if (!files.length) return;
-  stagedFiles.push(...files);
+  
+  files.forEach(file => {
+    const transferId = crypto.randomUUID();
+    stagedFiles.push({ file, transferId });
+    transport?.send('file-staged', {
+      transferId,
+      name: file.name,
+      size: file.size,
+      mimeType: file.type || 'application/octet-stream'
+    });
+  });
+  
   renderQueue();
 }
 
 function renderQueue() {
   const queueEl = document.getElementById('staged-queue');
   const listEl = document.getElementById('staged-list');
+  if (!queueEl || !listEl) return;
+
   queueEl.style.display = stagedFiles.length ? 'block' : 'none';
   listEl.innerHTML = '';
 
-  stagedFiles.forEach((file, idx) => {
+  stagedFiles.forEach((item, idx) => {
+    const { file } = item;
     const row = document.createElement('div');
     row.className = 'staged-item';
     row.innerHTML = `
@@ -389,11 +437,16 @@ function renderQueue() {
 }
 
 function removeFromQueue(idx) {
+  const item = stagedFiles[idx];
+  transport?.send('file-unstaged', { transferId: item.transferId });
   stagedFiles.splice(idx, 1);
   renderQueue();
 }
 
 function clearQueue() {
+  stagedFiles.forEach(item => {
+    transport?.send('file-unstaged', { transferId: item.transferId });
+  });
   stagedFiles.length = 0;
   renderQueue();
 }

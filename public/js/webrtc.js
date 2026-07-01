@@ -206,10 +206,10 @@ class WebRTCMesh {
     }
   }
 
-  async sendFile(file, onProgress) {
+  async sendFile(file, onProgress, existingTransferId) {
     if (this.peers.size === 0) throw new Error('No peers connected');
 
-    const transferId = crypto.randomUUID();
+    const transferId = existingTransferId || crypto.randomUUID();
     const meta = {
       type: 'file-meta',
       transferId,
@@ -226,13 +226,12 @@ class WebRTCMesh {
     dcs.forEach(dc => { try { dc.send(metaStr); } catch {} });
 
     // Stream file in chunks
-    const buffer = await file.arrayBuffer();
     const idBytes = new TextEncoder().encode(transferId);
     let offset = 0;
 
-    while (offset < buffer.byteLength) {
-      const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
-      offset += chunk.byteLength;
+    while (offset < file.size) {
+      const chunkBlob = file.slice(offset, offset + CHUNK_SIZE);
+      const chunk = await chunkBlob.arrayBuffer();
 
       // Prepend transferId to binary chunk
       const packet = new ArrayBuffer(36 + chunk.byteLength);
@@ -240,23 +239,29 @@ class WebRTCMesh {
       view.set(idBytes, 0);
       view.set(new Uint8Array(chunk), 36);
 
+      // Throttle if buffer is filling up
+      const drainPromises = dcs.map(dc => {
+        if (dc.readyState === 'open' && dc.bufferedAmount > 8 * 1024 * 1024) {
+          return new Promise(res => {
+            const check = () => { dc.bufferedAmount < 4 * 1024 * 1024 ? res() : setTimeout(check, 50); };
+            check();
+          });
+        }
+      }).filter(Boolean);
+
+      if (drainPromises.length > 0) {
+        await Promise.all(drainPromises);
+      }
+
       dcs.forEach(dc => {
         if (dc.readyState === 'open') {
-          // Throttle if buffer is filling up
-          if (dc.bufferedAmount > 8 * 1024 * 1024) {
-            // Wait for buffer to drain
-            const wait = new Promise(res => {
-              const check = () => { dc.bufferedAmount < 4 * 1024 * 1024 ? res() : setTimeout(check, 50); };
-              check();
-            });
-            wait.then(() => { try { dc.send(packet); } catch {} });
-          } else {
-            try { dc.send(packet); } catch {}
-          }
+          try { dc.send(packet); } catch {}
         }
       });
 
-      onProgress?.(offset / buffer.byteLength);
+      offset += chunk.byteLength;
+      onProgress?.(offset / file.size);
+
       // Yield to event loop every 16 chunks
       if ((offset / CHUNK_SIZE) % 16 === 0) {
         await new Promise(r => setTimeout(r, 0));

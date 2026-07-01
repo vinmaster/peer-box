@@ -52,8 +52,8 @@ class WSTransport {
     this.send(type, payload);
   }
 
-  async sendFile(file, onProgress) {
-    const transferId = crypto.randomUUID();
+  async sendFile(file, onProgress, existingTransferId) {
+    const transferId = existingTransferId || crypto.randomUUID();
     const meta = {
       type: 'file-meta',
       transferId,
@@ -64,22 +64,24 @@ class WSTransport {
 
     this.socket.emit('relay-data', { ...meta, fromName: this.myName });
 
-    const buffer = await file.arrayBuffer();
     let offset = 0;
 
-    while (offset < buffer.byteLength) {
-      const chunk = buffer.slice(offset, offset + WS_CHUNK_SIZE);
+    while (offset < file.size) {
+      const chunkBlob = file.slice(offset, offset + WS_CHUNK_SIZE);
+      const chunk = await chunkBlob.arrayBuffer();
       offset += chunk.byteLength;
 
       this.socket.emit('relay-data', {
         type: 'file-chunk',
         transferId,
-        data: Array.from(new Uint8Array(chunk)), // JSON-safe
+        data: chunk, // binary supported by socket.io
         fromName: this.myName,
       });
 
-      onProgress?.(Math.min(offset / buffer.byteLength, 1));
-      await new Promise(r => setTimeout(r, 10));
+      onProgress?.(offset / file.size);
+      
+      // Yield to prevent UI freeze and overwhelming the internal buffer
+      await new Promise(r => setTimeout(r, 5));
     }
 
     this.socket.emit('relay-data', {
@@ -107,7 +109,16 @@ class WSTransport {
     } else if (type === 'file-chunk') {
       const transfer = this.incomingFiles.get(payload.transferId);
       if (transfer) {
-        const buf = new Uint8Array(payload.data).buffer;
+        let buf = payload.data;
+        if (!buf) return;
+        if (!(buf instanceof ArrayBuffer)) {
+          if (buf.buffer instanceof ArrayBuffer) {
+            buf = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+          } else {
+            buf = new Uint8Array(buf).buffer;
+          }
+        }
+        
         transfer.chunks.push(buf);
         transfer.received += buf.byteLength;
         const progress = Math.min(transfer.received / transfer.meta.size, 1);
