@@ -32,10 +32,6 @@
           <button class="room-code-value" id="room-code-btn" onclick="openQRModal()" title="Click to show QR code"
             aria-label="Show QR code for this room">----</button>
         </div>
-        <span class="badge badge-green" id="peer-count-badge">
-          <span>👥</span>
-          <span id="peer-count">1</span>
-        </span>
       </div>
 
       <div class="room-header-right">
@@ -81,16 +77,16 @@
               <div class="staged-header">
                 <span class="staged-title">Ready to send</span>
                 <div style="display:flex;gap:8px;">
-                  <button class="btn btn-ghost btn-sm" id="btn-clear-queue" onclick="clearQueue()" aria-label="Clear queue">✕ Clear</button>
-                  <button class="btn btn-primary btn-sm" id="btn-send-files" onclick="sendStagedFiles()" aria-label="Send files">
+                  <button class="btn btn-ghost btn-sm" id="btn-clear-queue" onclick="clearQueue()"
+                    aria-label="Clear queue">✕ Clear</button>
+                  <button class="btn btn-primary btn-sm" id="btn-send-files" onclick="sendStagedFiles()"
+                    aria-label="Send files">
                     <span>📤</span> Send Files
                   </button>
                 </div>
               </div>
               <div class="staged-list" id="staged-list"></div>
             </div>
-
-
 
             <!-- Transfer List -->
             <div class="transfers-section">
@@ -109,6 +105,11 @@
         <div class="content-panel chat-section">
           <div class="panel-header">
             <span class="panel-header-icon" aria-hidden="true">💬</span> Chat
+
+            <span class="badge badge-green" id="peer-count-badge">
+              <span>👥</span>
+              <span id="peer-count">1</span>
+            </span>
           </div>
 
           <!-- Members List Area -->
@@ -136,8 +137,8 @@
   </div>
 
   <!-- Mobile sidebar FAB -->
-  <button class="sidebar-fab" id="btn-sidebar-fab" onclick="toggleMobileSidebar()"
-    aria-label="Open members sidebar" title="Members">
+  <button class="sidebar-fab" id="btn-sidebar-fab" onclick="toggleMobileSidebar()" aria-label="Open members sidebar"
+    title="Members">
     👥
     <span class="sidebar-fab-badge" id="sidebar-fab-badge">1</span>
   </button>
@@ -172,12 +173,16 @@
         </div>
 
         <div style="border-top:1px solid var(--border-subtle);padding-top:20px;margin-top:20px;">
-          <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;text-align:center;">Instant Pairing</div>
+          <div
+            style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;text-align:center;">
+            Instant Pairing</div>
           <div style="display:flex;flex-direction:column;align-items:center;">
-            <button class="hold-pair-btn" id="btn-host-hold-pair" aria-label="Hold to Pair" style="width:100%;max-width:240px;">
+            <button class="hold-pair-btn" id="btn-host-hold-pair" aria-label="Hold to Pair"
+              style="width:100%;max-width:240px;">
               <span id="host-hold-pair-icon">🖐️</span> <span id="host-hold-pair-text">Hold to Pair</span>
             </button>
-            <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;max-width:280px;">Hold down with another person to instantly connect</p>
+            <p style="font-size:0.72rem;color:var(--text-muted);text-align:center;margin-top:8px;max-width:280px;">Hold
+              down with another person to instantly connect</p>
           </div>
         </div>
       </div>

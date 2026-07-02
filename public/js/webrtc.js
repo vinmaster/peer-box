@@ -153,7 +153,7 @@ class WebRTCMesh {
       // JSON envelope
       try {
         const msg = JSON.parse(data);
-        if (msg.type === 'chat' || msg.type === 'clipboard') {
+        if (msg.type === 'chat' || msg.type === 'clipboard' || msg.type === 'file-staged' || msg.type === 'file-unstaged') {
           this.onMessage?.(peerId, fromName, msg.type, msg.payload);
         } else if (msg.type === 'file-meta') {
           // Start receiving a file

@@ -98,7 +98,7 @@ class WSTransport {
   _handleRelayData(payload) {
     const { from, fromName, type } = payload;
 
-    if (type === 'chat' || type === 'clipboard') {
+    if (type === 'chat' || type === 'clipboard' || type === 'file-staged' || type === 'file-unstaged') {
       this.onMessage?.(from, fromName, type, payload.payload);
     } else if (type === 'file-meta') {
       this.incomingFiles.set(payload.transferId, {
